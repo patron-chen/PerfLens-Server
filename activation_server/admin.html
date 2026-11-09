@@ -27,6 +27,7 @@
 <body>
   <main>
     <h1>PerfLens 激活管理</h1>
+    <p>当前发布版本 <strong>$latest_version</strong></p>
     <section class="policy" aria-labelledby="policy">
       <h2 id="policy">签发策略</h2>
       <form method="post" action="/admin/settings">
@@ -38,12 +39,12 @@
     </section>
     <section aria-labelledby="clients">
       <h2 id="clients">已登记客户端（$count）</h2>
-      <p>时间均为 UTC。最近请求记录客户端上次领码或续期的时间。</p>
+      <p>时间均为 UTC。客户端版本来自最近一次成功的版本上报。</p>
       <div class="clients">
         <table>
-          <thead><tr><th scope="col">UID</th><th scope="col">首次登记</th><th scope="col">最近请求</th><th scope="col">最近签发到期</th><th scope="col">自动签发</th><th scope="col">操作</th></tr></thead>
+          <thead><tr><th scope="col">UID</th><th scope="col">客户端版本</th><th scope="col">首次登记</th><th scope="col">最近请求</th><th scope="col">最近签发到期</th><th scope="col">自动签发</th><th scope="col">操作</th></tr></thead>
           <tbody>$rows</tbody>
-          <tfoot><tr><td colspan="6">等待首个客户端注册。</td></tr></tfoot>
+          <tfoot><tr><td colspan="7">等待首个客户端注册。</td></tr></tfoot>
         </table>
       </div>
     </section>

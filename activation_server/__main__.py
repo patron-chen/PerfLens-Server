@@ -1,4 +1,4 @@
-"""Initialize keys and run the standalone activation server."""
+"""Initialize keys, publish updates, and run the standalone activation server."""
 import argparse
 import os
 from pathlib import Path
@@ -8,6 +8,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from .app import Registry, create_app
+from .updates import publish_update
 
 
 def load_private_key(path):
@@ -46,6 +47,9 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="command", required=True)
     init = commands.add_parser("init", help="Create the server signing key and export its public key")
     init.add_argument("--data-dir", type=Path, required=True)
+    publish = commands.add_parser("publish-update", help="Publish a signed Windows x64 update")
+    publish.add_argument("--data-dir", type=Path, required=True)
+    publish.add_argument("--release-dir", type=Path, required=True)
     serve = commands.add_parser("serve", help="Start the activation API and admin page")
     serve.add_argument("--data-dir", type=Path, required=True)
     serve.add_argument("--host", default="127.0.0.1")
@@ -56,6 +60,11 @@ def main(argv=None):
     try:
         if args.command == "init":
             initialize(args.data_dir)
+            return
+        if args.command == "publish-update":
+            key = load_private_key(args.data_dir / "activation-private.pem")
+            version = publish_update(args.data_dir, args.release_dir, key)
+            print(f"Published Windows x64 update {version}")
             return
         username = os.environ.get("PERFLENS_ADMIN_USERNAME", "")
         password = os.environ.get("PERFLENS_ADMIN_PASSWORD", "")

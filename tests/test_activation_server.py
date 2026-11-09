@@ -2,22 +2,26 @@
 import base64
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
+import hashlib
 from http.client import HTTPConnection
 import json
 from pathlib import Path
 import re
 import socket
+import sqlite3
 import tempfile
 import threading
 import time
 import unittest
 from urllib.parse import urlencode
 
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 import uvicorn
 
 from activation_server.app import Registry, create_app
 from activation_server.protocol import ACTIVATION_PATH, verify_code
+from activation_server.updates import SIGNING_PREFIX, UPDATES_PATH, artifact_names, publish_update
 
 
 class ActivationServerTests(unittest.TestCase):
@@ -114,3 +118,76 @@ class ActivationServerTests(unittest.TestCase):
             codes = set(pool.map(self.registry.issue, [self.uid] * 8))
         self.assertEqual(len(codes), 1)
         self.assertEqual(len(self.registry.view()[1]), 1)
+
+    def test_legacy_database_preserves_lease_and_records_latest_successful_version(self):
+        old_db = self.folder / "legacy.sqlite3"
+        expiry = self.now + 60
+        with closing(sqlite3.connect(old_db)) as db, db:
+            db.execute("CREATE TABLE clients (uid TEXT PRIMARY KEY, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, "
+                       "auto_issue INTEGER NOT NULL DEFAULT 1, expires_at INTEGER)")
+            db.execute("INSERT INTO clients VALUES (?, ?, ?, 1, ?)", (self.uid, self.now - 60, self.now, expiry))
+        self.registry = Registry(old_db, self.key, lambda: self.now)
+        self.start_server()
+
+        def activate(**fields):
+            return self.request("POST", ACTIVATION_PATH, json.dumps({"uid": self.uid, **fields}), content_type="application/json")
+
+        auth = b"test-admin:test-password"
+        self.assertIn("<td>—</td>", self.request("GET", "/admin", auth=auth)[1])
+        code, body = activate(client_version="0.4.1")
+        self.assertEqual(code, 200)
+        self.assertEqual(verify_code(json.loads(body)["code"], self.uid, self.key.public_key()), expiry)
+        self.assertEqual(activate(), (code, body))
+        self.registry.set_auto_issue(self.uid, False)
+        self.assertEqual(activate(client_version="0.4.2")[0], 403)
+        self.assertEqual(activate(client_version="<script>")[0], 422)
+        reopened = Registry(old_db, self.key, lambda: self.now)
+        row = reopened.view()[1][0]
+        self.assertEqual((row["first_seen"], row["expires_at"], row["client_version"]), (self.now - 60, expiry, "0.4.1"))
+        self.assertIn("<td>0.4.1</td>", self.request("GET", "/admin", auth=auth)[1])
+
+    def test_published_manifest_is_signed_and_downloads_stay_versioned(self):
+        self.start_server()
+        latest = f"{UPDATES_PATH}/latest"
+        self.assertEqual(self.request("GET", latest), (204, ""))
+        public = self.key.public_key().public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+
+        def release(version):
+            folder = self.folder / f"release-{version}"
+            folder.mkdir()
+            artifacts = []
+            for name in artifact_names(version).values():
+                contents = name.encode("ascii")
+                (folder / name).write_bytes(contents)
+                artifacts.append({"file": name, "bytes": len(contents), "sha256": hashlib.sha256(contents).hexdigest()})
+            record = {"version": version, "activation_server": "http://127.0.0.1:8787", "artifacts": artifacts,
+                      "activation_public_key_sha256": hashlib.sha256(public).hexdigest()}
+            (folder / "manifest.json").write_text(json.dumps(record), encoding="utf-8")
+            return folder
+
+        old = release("0.9.0")
+        newest = release("0.10.0")
+        bad = release("0.11.0")
+        self.assertEqual(publish_update(self.folder, old, self.key), "0.9.0")
+        with self.assertRaisesRegex(ValueError, "already published"):
+            publish_update(self.folder, old, self.key)
+        with self.assertRaisesRegex(ValueError, "public key"):
+            publish_update(self.folder, newest, Ed25519PrivateKey.generate())
+        (bad / artifact_names("0.11.0")["unpacked"]).write_bytes(b"tampered")
+        with self.assertRaisesRegex(ValueError, "mismatch"):
+            publish_update(self.folder, bad, self.key)
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.11.0/installer")[0], 404)
+        publish_update(self.folder, newest, self.key)
+        code, body = self.request("GET", latest)
+        self.assertEqual(code, 200)
+        envelope = json.loads(body)
+        payload = base64.b64decode(envelope["payload"])
+        self.key.public_key().verify(base64.b64decode(envelope["signature"]), SIGNING_PREFIX + payload)
+        signed = json.loads(payload)
+        self.assertEqual((signed["version"], signed["server_url"]), ("0.10.0", "http://127.0.0.1:8787"))
+        for kind, name in artifact_names("0.10.0").items():
+            self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/{kind}"), (200, name))
+            self.assertEqual(signed["artifacts"][kind]["sha256"], hashlib.sha256(name.encode("ascii")).hexdigest())
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer"), (200, artifact_names("0.9.0")["installer"]))
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/portable")[0], 404)
+        self.assertIn("当前发布版本 <strong>0.10.0</strong>", self.request("GET", "/admin", auth=b"test-admin:test-password")[1])

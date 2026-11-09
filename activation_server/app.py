@@ -9,11 +9,12 @@ import time
 from urllib.parse import parse_qsl
 
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.security import HTTPBasic
 from pydantic import BaseModel, Field
 
 from .protocol import ACTIVATION_PATH, MAX_EXPIRY, UID_PATTERN, signing_message, utc_datetime
+from .updates import MANIFEST_FILENAME, UPDATES_PATH, VERSION_PATTERN, artifact_names, latest_version
 
 
 class Registry:
@@ -21,7 +22,7 @@ class Registry:
         self.path = path
         self.signing_key = signing_key
         self.clock = clock
-        with closing(self._connect()) as db:
+        with closing(self._connect()) as db, db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS settings (
                     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -33,16 +34,20 @@ class Registry:
                     first_seen INTEGER NOT NULL,
                     last_seen INTEGER NOT NULL,
                     auto_issue INTEGER NOT NULL DEFAULT 1 CHECK (auto_issue IN (0, 1)),
-                    expires_at INTEGER
+                    expires_at INTEGER,
+                    client_version TEXT
                 );
             """)
+            db.execute("BEGIN IMMEDIATE")
+            if not any(column["name"] == "client_version" for column in db.execute("PRAGMA table_info(clients)")):
+                db.execute("ALTER TABLE clients ADD COLUMN client_version TEXT")
 
     def _connect(self):
         db = sqlite3.connect(self.path)
         db.row_factory = sqlite3.Row
         return db
 
-    def issue(self, uid):
+    def issue(self, uid, client_version=None):
         with closing(self._connect()) as db, db:
             # Serialize the policy read, registration and lease update with admin writes.
             db.execute("BEGIN IMMEDIATE")
@@ -58,7 +63,8 @@ class Registry:
             if expiry is None or expiry <= now:
                 minutes = db.execute("SELECT duration_minutes FROM settings WHERE id = 1").fetchone()[0]
                 expiry = min(MAX_EXPIRY, now + minutes * 60)
-                db.execute("UPDATE clients SET expires_at = ? WHERE uid = ?", (expiry, uid))
+            db.execute("UPDATE clients SET expires_at = ?, client_version = COALESCE(?, client_version) WHERE uid = ?",
+                       (expiry, client_version, uid))
             message = signing_message(uid, expiry)
             return f"{message.decode('ascii')}.{self.signing_key.sign(message).hex()}"
 
@@ -81,6 +87,7 @@ class Registry:
 
 class ActivationRequest(BaseModel):
     uid: str = Field(min_length=64, max_length=64, pattern=rf"^{UID_PATTERN}$")
+    client_version: str | None = Field(default=None, min_length=1, max_length=64, pattern=r"^[0-9A-Za-z][0-9A-Za-z.+-]*$")
 
 
 def _utc(seconds):
@@ -94,6 +101,7 @@ def _client_row(client, csrf):
     return f"""
         <tr>
           <td><code>{uid}</code></td>
+          <td>{escape(client["client_version"] or "—")}</td>
           <td>{_utc(client["first_seen"])}</td>
           <td>{_utc(client["last_seen"])}</td>
           <td>{_utc(client["expires_at"])}</td>
@@ -111,6 +119,7 @@ def create_app(registry, username, password):
     basic = HTTPBasic(realm="PerfLens activation")
     csrf = secrets.token_urlsafe(32)
     template = Template(Path(__file__).with_name("admin.html").read_text(encoding="utf-8"))
+    updates = Path(registry.path).parent / "updates"
 
     async def require_admin(request: Request):
         if request.url.scheme != "https" and (not request.client or request.client.host not in {"127.0.0.1", "::1"}):
@@ -134,16 +143,32 @@ def create_app(registry, username, password):
 
     @app.post(ACTIVATION_PATH)
     def activate(request: ActivationRequest):
-        code = registry.issue(request.uid)
+        code = registry.issue(request.uid, request.client_version)
         if code is None:
             raise HTTPException(403, "issuance_disabled")
         return JSONResponse({"code": code}, headers={"Cache-Control": "no-store"})
+
+    @app.get(f"{UPDATES_PATH}/latest")
+    def latest_update():
+        version = latest_version(updates)
+        headers = {"Cache-Control": "no-store"}
+        if version is None:
+            return Response(status_code=204, headers=headers)
+        return FileResponse(updates / version / MANIFEST_FILENAME, media_type="application/json", headers=headers)
+
+    @app.get(f"{UPDATES_PATH}/{{version}}/{{kind}}")
+    def download_update(version: str, kind: str):
+        name = artifact_names(version).get(kind) if VERSION_PATTERN.fullmatch(version) else None
+        if name is None or not (updates / version / MANIFEST_FILENAME).is_file() or not (updates / version / name).is_file():
+            raise HTTPException(404, "Update artifact not found")
+        return FileResponse(updates / version / name, filename=name, media_type="application/octet-stream")
 
     @app.get("/admin", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
     def admin():
         duration, clients = registry.view()
         rows = "".join(_client_row(client, csrf) for client in clients)
-        return HTMLResponse(template.substitute(duration=duration, csrf=csrf, count=len(clients), rows=rows),
+        return HTMLResponse(template.substitute(duration=duration, csrf=csrf, count=len(clients), rows=rows,
+                                               latest_version=latest_version(updates) or "—"),
                             headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY"})
 
     @app.post("/admin/settings")
