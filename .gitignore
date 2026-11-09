@@ -1,0 +1,13 @@
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+.venv/
+
+# Operator credentials, keys and local databases
+/private/
+.env
+.env.*
+*.pem
+*.key
+*.sqlite3
+*.sqlite3-*

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PerfLens 激活管理</title>
+  <style>
+    :root { color-scheme: light dark; font: 15px/1.55 system-ui, sans-serif; }
+    body { margin: 0; background: Canvas; color: CanvasText; }
+    main { max-width: 78rem; margin: auto; padding: clamp(1rem, 4vw, 3rem); }
+    h1, h2 { line-height: 1.2; }
+    section { margin-top: 2rem; }
+    .policy { padding: 1rem 1.25rem; border: 1px solid GrayText; border-radius: .6rem; }
+    .policy h2 { margin-top: 0; }
+    button, input { font: inherit; padding: .3rem .65rem; }
+    button { cursor: pointer; }
+    input[type=number] { width: 8rem; margin: 0 .4rem; }
+    .clients { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { padding: .7rem; text-align: left; border-bottom: 1px solid GrayText; }
+    td:not(:first-child), th { white-space: nowrap; }
+    code { display: block; min-width: 12rem; overflow-wrap: anywhere; }
+    tbody:empty { display: none; }
+    tbody:not(:empty) + tfoot { display: none; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>PerfLens 激活管理</h1>
+    <section class="policy" aria-labelledby="policy">
+      <h2 id="policy">签发策略</h2>
+      <form method="post" action="/admin/settings">
+        <input type="hidden" name="csrf" value="$csrf">
+        <label>有效期（分钟）<input type="number" name="duration_minutes" min="1" step="1" value="$duration" required></label>
+        <button type="submit">保存有效期</button>
+      </form>
+      <p>新 UID 自动登记并签发。调整有效期或停发对后续签发请求生效，已领到的授权在到期前有效。</p>
+    </section>
+    <section aria-labelledby="clients">
+      <h2 id="clients">已登记客户端（$count）</h2>
+      <p>时间均为 UTC。最近请求记录客户端上次领码或续期的时间。</p>
+      <div class="clients">
+        <table>
+          <thead><tr><th scope="col">UID</th><th scope="col">首次登记</th><th scope="col">最近请求</th><th scope="col">最近签发到期</th><th scope="col">自动签发</th><th scope="col">操作</th></tr></thead>
+          <tbody>$rows</tbody>
+          <tfoot><tr><td colspan="6">等待首个客户端注册。</td></tr></tfoot>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
