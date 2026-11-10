@@ -169,7 +169,7 @@ class ActivationServerTests(unittest.TestCase):
         self.assertEqual(len(codes), 1)
         self.assertEqual(len(self.registry.view()[1]), 1)
 
-    def test_legacy_database_preserves_lease_and_records_latest_successful_version(self):
+    def test_legacy_database_preserves_lease_and_records_latest_client_metadata(self):
         old_db = self.folder / "legacy.sqlite3"
         expiry = self.now + 60
         with closing(sqlite3.connect(old_db)) as db, db:
@@ -183,18 +183,26 @@ class ActivationServerTests(unittest.TestCase):
             return self.request("POST", ACTIVATION_PATH, json.dumps({"uid": self.uid, **fields}), content_type="application/json")
 
         auth = b"test-admin:test-password"
-        self.assertIn("<td>—</td>", self.request("GET", "/admin", auth=auth)[1])
-        code, body = activate(client_version="0.4.1")
+        self.assertIn('<td class="computer-name">—</td>', self.request("GET", "/admin", auth=auth)[1])
+        code, body = activate(client_version="0.4.1", local_ip="2001:0db8::1", computer_name="测试机<01>")
         self.assertEqual(code, 200)
         self.assertEqual(verify_code(json.loads(body)["code"], self.uid, self.key.public_key()), expiry)
+        html = self.request("GET", "/admin", auth=auth)[1]
+        self.assertIn("<td>2001:db8::1</td>", html)
+        self.assertIn("测试机&lt;01&gt;", html)
         self.assertEqual(activate(), (code, body))
+        self.assertEqual(activate(local_ip="192.0.2.41"), (code, body))
         self.registry.set_auto_issue(self.uid, False)
-        self.assertEqual(activate(client_version="0.4.2")[0], 403)
+        self.assertEqual(activate(client_version="0.4.2", local_ip="192.0.2.42", computer_name="Other")[0], 403)
         self.assertEqual(activate(client_version="<script>")[0], 422)
+        self.assertEqual(activate(local_ip="999.0.0.1")[0], 422)
         reopened = Registry(old_db, self.key, lambda: self.now)
         row = reopened.view()[1][0]
         self.assertEqual((row["first_seen"], row["expires_at"], row["client_version"]), (self.now - 60, expiry, "0.4.1"))
-        self.assertIn("<td>0.4.1</td>", self.request("GET", "/admin", auth=auth)[1])
+        self.assertEqual((row["local_ip"], row["computer_name"]), ("192.0.2.41", "测试机<01>"))
+        html = self.request("GET", "/admin", auth=auth)[1]
+        self.assertIn("<td>0.4.1</td>", html)
+        self.assertIn("<td>192.0.2.41</td>", html)
 
     def test_published_manifest_is_signed_and_downloads_stay_versioned(self):
         self.start_server()

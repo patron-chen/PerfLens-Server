@@ -2,6 +2,7 @@
 import asyncio
 from contextlib import asynccontextmanager, closing
 from html import escape
+from ipaddress import ip_address
 import os
 from pathlib import Path
 import secrets
@@ -14,7 +15,7 @@ from urllib.parse import parse_qsl
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.security import HTTPBasic
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .protocol import ACTIVATION_PATH, MAX_EXPIRY, UID_PATTERN, signing_message, utc_datetime
 from .updates import MANIFEST_FILENAME, UPDATES_PATH, VERSION_PATTERN, artifact_names, latest_version, watch_distribution
@@ -38,19 +39,23 @@ class Registry:
                     last_seen INTEGER NOT NULL,
                     auto_issue INTEGER NOT NULL DEFAULT 1 CHECK (auto_issue IN (0, 1)),
                     expires_at INTEGER,
-                    client_version TEXT
+                    client_version TEXT,
+                    local_ip TEXT,
+                    computer_name TEXT
                 );
             """)
             db.execute("BEGIN IMMEDIATE")
-            if not any(column["name"] == "client_version" for column in db.execute("PRAGMA table_info(clients)")):
-                db.execute("ALTER TABLE clients ADD COLUMN client_version TEXT")
+            columns = {column["name"] for column in db.execute("PRAGMA table_info(clients)")}
+            for name in ("client_version", "local_ip", "computer_name"):
+                if name not in columns:
+                    db.execute(f"ALTER TABLE clients ADD COLUMN {name} TEXT")
 
     def _connect(self):
         db = sqlite3.connect(self.path)
         db.row_factory = sqlite3.Row
         return db
 
-    def issue(self, uid, client_version=None):
+    def issue(self, uid, client_version=None, *, local_ip=None, computer_name=None):
         with closing(self._connect()) as db, db:
             # Serialize the policy read, registration and lease update with admin writes.
             db.execute("BEGIN IMMEDIATE")
@@ -66,8 +71,11 @@ class Registry:
             if expiry is None or expiry <= now:
                 minutes = db.execute("SELECT duration_minutes FROM settings WHERE id = 1").fetchone()[0]
                 expiry = min(MAX_EXPIRY, now + minutes * 60)
-            db.execute("UPDATE clients SET expires_at = ?, client_version = COALESCE(?, client_version) WHERE uid = ?",
-                       (expiry, client_version, uid))
+            db.execute("""
+                UPDATE clients SET expires_at = ?, client_version = COALESCE(?, client_version),
+                    local_ip = COALESCE(?, local_ip), computer_name = COALESCE(?, computer_name)
+                WHERE uid = ?
+            """, (expiry, client_version, local_ip, computer_name, uid))
             message = signing_message(uid, expiry)
             return f"{message.decode('ascii')}.{self.signing_key.sign(message).hex()}"
 
@@ -91,6 +99,13 @@ class Registry:
 class ActivationRequest(BaseModel):
     uid: str = Field(min_length=64, max_length=64, pattern=rf"^{UID_PATTERN}$")
     client_version: str | None = Field(default=None, min_length=1, max_length=64, pattern=r"^[0-9A-Za-z][0-9A-Za-z.+-]*$")
+    local_ip: str | None = Field(default=None, max_length=45, pattern=r"^[0-9A-Fa-f:.]+$")
+    computer_name: str | None = Field(default=None, min_length=1, max_length=255, pattern=r"^[^\x00-\x1f\x7f]+$")
+
+    @field_validator("local_ip")
+    @classmethod
+    def normalize_local_ip(cls, value):
+        return str(ip_address(value)) if value is not None else None
 
 
 def _utc(seconds):
@@ -104,6 +119,8 @@ def _client_row(client, csrf):
     return f"""
         <tr>
           <td><code>{uid}</code></td>
+          <td class="computer-name">{escape(client["computer_name"] or "—")}</td>
+          <td>{escape(client["local_ip"] or "—")}</td>
           <td>{escape(client["client_version"] or "—")}</td>
           <td>{_utc(client["first_seen"])}</td>
           <td>{_utc(client["last_seen"])}</td>
@@ -169,7 +186,7 @@ def create_app(registry, username, password, *, distribution_dir=None):
 
     @app.post(ACTIVATION_PATH)
     def activate(request: ActivationRequest):
-        code = registry.issue(request.uid, request.client_version)
+        code = registry.issue(request.uid, request.client_version, local_ip=request.local_ip, computer_name=request.computer_name)
         if code is None:
             raise HTTPException(403, "issuance_disabled")
         return JSONResponse({"code": code}, headers={"Cache-Control": "no-store"})
