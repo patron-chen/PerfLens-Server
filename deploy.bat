@@ -7,6 +7,7 @@ set "PERFLENS_ADMIN_PASSWORD="
 set "ACTIVATION_HOST=0.0.0.0"
 set "ACTIVATION_PORT=8787"
 set "ACTIVATION_PYTHON=python.exe"
+set "DISTRIBUTION_DIR=distribution"
 set "ACTIVATION_TLS_CERTFILE="
 set "ACTIVATION_TLS_KEYFILE="
 rem Set to 1 to allow HTTP admin on a trusted LAN.
@@ -31,6 +32,7 @@ rem Init reuses the signing key and prints the public key path for packaging.
 "%VENV_PYTHON%" -B -m activation_server init --data-dir "%DATA_DIR%"
 if errorlevel 1 goto finish
 "%VENV_PYTHON%" -B -m activation_server serve --data-dir "%DATA_DIR%" --host "%ACTIVATION_HOST%" --port "%ACTIVATION_PORT%" ^
+    --distribution-dir "%DISTRIBUTION_DIR%" ^
     --ssl-certfile "%ACTIVATION_TLS_CERTFILE%" --ssl-keyfile "%ACTIVATION_TLS_KEYFILE%"
 
 :finish

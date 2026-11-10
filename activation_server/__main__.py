@@ -54,6 +54,7 @@ def main(argv=None):
     serve.add_argument("--data-dir", type=Path, required=True)
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8787)
+    serve.add_argument("--distribution-dir", type=Path, help="Watch a release directory for newer versions")
     serve.add_argument("--ssl-certfile")
     serve.add_argument("--ssl-keyfile")
     args = parser.parse_args(argv)
@@ -76,7 +77,10 @@ def main(argv=None):
             raise ValueError("Port must be between 1 and 65535")
         key = load_private_key(args.data_dir / "activation-private.pem")
         registry = Registry(args.data_dir / "activation.sqlite3", key)
-        uvicorn.run(create_app(registry, username, password), host=args.host, port=args.port, workers=1,
+        if args.distribution_dir is not None:
+            args.distribution_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        app = create_app(registry, username, password, distribution_dir=args.distribution_dir)
+        uvicorn.run(app, host=args.host, port=args.port, workers=1,
                     proxy_headers=False, ssl_certfile=args.ssl_certfile, ssl_keyfile=args.ssl_keyfile)
     except (OSError, ValueError, TypeError) as error:
         parser.exit(1, f"ERROR: {error}\n")

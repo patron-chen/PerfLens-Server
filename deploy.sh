@@ -7,6 +7,7 @@ PERFLENS_ADMIN_PASSWORD=''
 listen_host=0.0.0.0
 listen_port=8787
 python_exe=python3.13
+distribution_dir=distribution
 tls_certfile=''
 tls_keyfile=''
 # Set to 1 to allow HTTP admin on a trusted LAN.
@@ -33,4 +34,5 @@ fi
 "$venv_python" -B -m activation_server init --data-dir "$data_dir"
 export PERFLENS_ADMIN_USERNAME PERFLENS_ADMIN_PASSWORD
 exec "$venv_python" -B -m activation_server serve --data-dir "$data_dir" --host "$listen_host" --port "$listen_port" \
+    --distribution-dir "$distribution_dir" \
     --ssl-certfile "$tls_certfile" --ssl-keyfile "$tls_keyfile"

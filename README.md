@@ -24,6 +24,8 @@ bash deploy.sh
 
 脚本创建或复用 `private/activation-venv`，按 `activation_server/requirements.txt` 安装依赖，并初始化 `private/activation` 中的签名密钥。重跑复用原密钥和数据库。服务以前台方式运行，按 `Ctrl+C` 停止。
 
+脚本同时启动激活和在线更新。发行目录默认是脚本旁的 `distribution`。Windows 在 `DISTRIBUTION_DIR` 中配置，Linux 在 `distribution_dir` 中配置，支持绝对路径和相对于脚本的路径。服务启动时创建该目录。
+
 部署脚本默认监听 `0.0.0.0:8787`。可在 BAT 中修改 `ACTIVATION_HOST` 和 `ACTIVATION_PORT`，在 Bash 中修改 `listen_host` 和 `listen_port`。将端口的访问范围限制在使用 PerfLens 的内网。
 
 ## 管理与打包
@@ -40,13 +42,24 @@ bash deploy.sh
 
 ## 发布在线更新
 
-用同一服务器地址和公钥打包稳定版本 `X.Y.Z`。将发行目录中的 `manifest.json`、`PerfLens-Setup-<版本>-x64.exe` 和 `PerfLens-Unpacked-<版本>-win-x64.zip` 传到服务主机。用部署环境的 Python 执行发布命令，数据目录与运行中的服务一致。
+用同一服务器地址和公钥打包更高的稳定版本 `X.Y.Z`。先将同一批次的安装 EXE 和解包 ZIP 复制到服务器的 `distribution`，再替换根目录的 `manifest.json`。
+
+```text
+distribution/
+  PerfLens-Setup-X.Y.Z-x64.exe
+  PerfLens-Unpacked-X.Y.Z-win-x64.zip
+  manifest.json
+```
+
+服务每 5 秒检查发行目录，校验公钥指纹、产物大小和 SHA-256，用现有 Ed25519 私钥签名后发布。复制未完成或校验失败期间，客户端仍可获取上一个已发布版本。新版本发布后，支持在线更新的 Windows x64 安装版和解包版在下次启动时自动检查并提示下载，服务器可持续运行。发行目录的写权限仅授予发布人员。
+
+管理页显示最高的已发布版本。签名清单和产物保留在 `private/activation/updates`，同版本保留首次发布的文件，已有客户端下载时仍可取到原包。
+
+手动发布时使用部署环境的 Python，并指定运行中的服务数据目录。
 
 ```text
 python -m activation_server publish-update --data-dir private/activation --release-dir <发行目录>
 ```
-
-命令校验公钥指纹及两份产物的大小和 SHA-256，用现有 Ed25519 私钥签名并发布。管理页显示最高的已发布版本。已发布版本保留在 `private/activation/updates`，同版本不可覆盖，已有客户端下载时仍可取到原包。
 
 `GET /api/v1/updates/windows-x64/latest` 返回签名清单，无发布版本时返回 `204`。`GET /api/v1/updates/windows-x64/{version}/{kind}` 按 `installer` 或 `unpacked` 下载指定版本。首个支持在线更新的客户端包通过手工安装或解压分发。
 

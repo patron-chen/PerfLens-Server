@@ -1,11 +1,13 @@
 """SQLite issuance policy and the same-origin admin page."""
-from contextlib import closing
+import asyncio
+from contextlib import asynccontextmanager, closing
 from html import escape
 import os
 from pathlib import Path
 import secrets
 import sqlite3
 from string import Template
+from threading import Event, Thread
 import time
 from urllib.parse import parse_qsl
 
@@ -15,7 +17,7 @@ from fastapi.security import HTTPBasic
 from pydantic import BaseModel, Field
 
 from .protocol import ACTIVATION_PATH, MAX_EXPIRY, UID_PATTERN, signing_message, utc_datetime
-from .updates import MANIFEST_FILENAME, UPDATES_PATH, VERSION_PATTERN, artifact_names, latest_version
+from .updates import MANIFEST_FILENAME, UPDATES_PATH, VERSION_PATTERN, artifact_names, latest_version, watch_distribution
 
 
 class Registry:
@@ -115,12 +117,29 @@ def _client_row(client, csrf):
     """
 
 
-def create_app(registry, username, password):
-    app = FastAPI(title="PerfLens activation", docs_url=None, redoc_url=None, openapi_url=None)
+def create_app(registry, username, password, *, distribution_dir=None):
+    data_dir = Path(registry.path).parent
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        if distribution_dir is None:
+            yield
+            return
+        stop = Event()
+        publisher = Thread(target=watch_distribution, args=(data_dir, distribution_dir, registry.signing_key, stop),
+                           name="perflens-update-publisher", daemon=True)
+        publisher.start()
+        try:
+            yield
+        finally:
+            stop.set()
+            await asyncio.to_thread(publisher.join)
+
+    app = FastAPI(title="PerfLens activation", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
     basic = HTTPBasic(realm="PerfLens activation")
     csrf = secrets.token_urlsafe(32)
     template = Template(Path(__file__).with_name("admin.html").read_text(encoding="utf-8"))
-    updates = Path(registry.path).parent / "updates"
+    updates = data_dir / "updates"
     # Basic Auth credentials are unencrypted over plain HTTP.
     allow_http_admin = os.getenv("PERFLENS_ADMIN_ALLOW_HTTP") == "1"
 

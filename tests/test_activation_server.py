@@ -35,13 +35,13 @@ class ActivationServerTests(unittest.TestCase):
         self.db = self.folder / "activation.sqlite3"
         self.registry = Registry(self.db, self.key, lambda: self.now)
 
-    def start_server(self):
+    def start_server(self, *, distribution_dir=None):
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.addCleanup(listener.close)
         listener.bind(("127.0.0.1", 0))
         self.port = listener.getsockname()[1]
-        app = create_app(self.registry, "test-admin", "test-password")
-        server = uvicorn.Server(uvicorn.Config(app, log_level="critical", lifespan="off"))
+        app = create_app(self.registry, "test-admin", "test-password", distribution_dir=distribution_dir)
+        server = uvicorn.Server(uvicorn.Config(app, log_level="critical", lifespan="on"))
         worker = threading.Thread(target=server.run, kwargs={"sockets": [listener]}, daemon=True)
         worker.start()
 
@@ -65,6 +65,19 @@ class ActivationServerTests(unittest.TestCase):
             connection.request(method, path, body=data, headers=headers)
             response = connection.getresponse()
             return response.status, response.read().decode("utf-8")
+
+    def write_release(self, folder, version):
+        folder.mkdir(exist_ok=True)
+        public = self.key.public_key().public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+        artifacts = []
+        for name in artifact_names(version).values():
+            contents = name.encode("ascii")
+            (folder / name).write_bytes(contents)
+            artifacts.append({"file": name, "bytes": len(contents), "sha256": hashlib.sha256(contents).hexdigest()})
+        record = {"version": version, "activation_server": "http://127.0.0.1:8787", "artifacts": artifacts,
+                  "activation_public_key_sha256": hashlib.sha256(public).hexdigest()}
+        (folder / "manifest.json").write_text(json.dumps(record), encoding="utf-8")
+        return folder
 
     def test_lan_http_admin_requires_opt_in_and_credentials(self):
         async def get_admin_status(app, auth=None):
@@ -187,30 +200,16 @@ class ActivationServerTests(unittest.TestCase):
         self.start_server()
         latest = f"{UPDATES_PATH}/latest"
         self.assertEqual(self.request("GET", latest), (204, ""))
-        public = self.key.public_key().public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
-
-        def release(version):
-            folder = self.folder / f"release-{version}"
-            folder.mkdir()
-            artifacts = []
-            for name in artifact_names(version).values():
-                contents = name.encode("ascii")
-                (folder / name).write_bytes(contents)
-                artifacts.append({"file": name, "bytes": len(contents), "sha256": hashlib.sha256(contents).hexdigest()})
-            record = {"version": version, "activation_server": "http://127.0.0.1:8787", "artifacts": artifacts,
-                      "activation_public_key_sha256": hashlib.sha256(public).hexdigest()}
-            (folder / "manifest.json").write_text(json.dumps(record), encoding="utf-8")
-            return folder
-
-        old = release("0.9.0")
-        newest = release("0.10.0")
-        bad = release("0.11.0")
+        old = self.write_release(self.folder / "old", "0.9.0")
+        newest = self.write_release(self.folder / "newest", "0.10.0")
+        bad = self.write_release(self.folder / "bad", "0.11.0")
         self.assertEqual(publish_update(self.folder, old, self.key), "0.9.0")
         with self.assertRaisesRegex(ValueError, "already published"):
             publish_update(self.folder, old, self.key)
         with self.assertRaisesRegex(ValueError, "public key"):
             publish_update(self.folder, newest, Ed25519PrivateKey.generate())
-        (bad / artifact_names("0.11.0")["unpacked"]).write_bytes(b"tampered")
+        tampered = bad / artifact_names("0.11.0")["unpacked"]
+        tampered.write_bytes(b"x" * tampered.stat().st_size)
         with self.assertRaisesRegex(ValueError, "mismatch"):
             publish_update(self.folder, bad, self.key)
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.11.0/installer")[0], 404)
@@ -228,3 +227,46 @@ class ActivationServerTests(unittest.TestCase):
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer"), (200, artifact_names("0.9.0")["installer"]))
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/portable")[0], 404)
         self.assertIn("当前发布版本 <strong>0.10.0</strong>", self.request("GET", "/admin", auth=b"test-admin:test-password")[1])
+
+    def test_distribution_publishes_complete_releases_without_restarting(self):
+        distribution = self.folder / "custom distribution"
+        distribution.mkdir()
+        self.enterContext(patch("activation_server.updates.DISTRIBUTION_POLL_SECONDS", 0.02))
+        self.start_server(distribution_dir=distribution)
+        latest = f"{UPDATES_PATH}/latest"
+        self.assertEqual(self.request("GET", latest), (204, ""))
+
+        def wait_for_version(expected):
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                code, body = self.request("GET", latest)
+                if code == 200:
+                    envelope = json.loads(body)
+                    payload = base64.b64decode(envelope["payload"])
+                    if json.loads(payload)["version"] == expected:
+                        signature = base64.b64decode(envelope["signature"])
+                        self.key.public_key().verify(signature, SIGNING_PREFIX + payload)
+                        return code, body
+                time.sleep(.01)
+            self.fail(f"Update {expected} did not become available")
+
+        self.write_release(distribution, "0.9.0")
+        previous = wait_for_version("0.9.0")
+        release = self.write_release(self.folder / "newest", "0.10.0")
+        names = artifact_names("0.10.0")
+        installer = distribution / names["installer"]
+        installer.write_bytes(b"partial")
+        (distribution / names["unpacked"]).write_bytes((release / names["unpacked"]).read_bytes())
+        with self.assertLogs("uvicorn.error", level="WARNING") as logs:
+            (distribution / "manifest.json").write_bytes((release / "manifest.json").read_bytes())
+            deadline = time.monotonic() + 5
+            while not any("Size mismatch" in line for line in logs.output):
+                self.assertLess(time.monotonic(), deadline, "Incomplete upload was not checked")
+                time.sleep(.01)
+        self.assertEqual(self.request("GET", latest), previous)
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer")[0], 404)
+
+        installer.write_bytes((release / installer.name).read_bytes())
+        wait_for_version("0.10.0")
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer"), (200, installer.name))
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer"), (200, artifact_names("0.9.0")["installer"]))

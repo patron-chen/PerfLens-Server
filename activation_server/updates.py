@@ -2,6 +2,7 @@
 import base64
 import hashlib
 import json
+import logging
 from pathlib import Path
 import re
 import tempfile
@@ -15,10 +16,15 @@ SIGNING_PREFIX = b"PerfLensUpdateV1\0"
 VERSION_PATTERN = re.compile(r"(?:0|[1-9][0-9]{0,8})(?:\.(?:0|[1-9][0-9]{0,8})){2}")
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 MANIFEST_FILENAME = "update.json"
+DISTRIBUTION_POLL_SECONDS = 5
 
 
 def artifact_names(version):
     return {"installer": f"PerfLens-Setup-{version}-x64.exe", "unpacked": f"PerfLens-Unpacked-{version}-win-x64.zip"}
+
+
+def _version_parts(version):
+    return tuple(map(int, version.split(".")))
 
 
 def latest_version(directory):
@@ -26,16 +32,21 @@ def latest_version(directory):
         return None
     versions = (entry.name for entry in directory.iterdir()
                 if VERSION_PATTERN.fullmatch(entry.name) and (entry / MANIFEST_FILENAME).is_file())
-    return max(versions, key=lambda version: tuple(map(int, version.split("."))), default=None)
+    return max(versions, key=_version_parts, default=None)
 
 
-def publish_update(data_dir, release_dir, signing_key):
+def publish_update(data_dir, release_dir, signing_key, *, newer_only=False):
     record = json.loads((release_dir / "manifest.json").read_text(encoding="utf-8"))
     if not isinstance(record, dict):
         raise ValueError("Invalid packaging manifest")
     version = record.get("version")
     if not isinstance(version, str) or not VERSION_PATTERN.fullmatch(version):
         raise ValueError("Updates require a stable X.Y.Z version")
+    updates = data_dir / "updates"
+    if newer_only:
+        current = latest_version(updates)
+        if current is not None and _version_parts(version) <= _version_parts(current):
+            return None
     origin = record.get("activation_server")
     if not isinstance(origin, str) or any(ch.isspace() or not ch.isprintable() for ch in origin) or "\\" in origin:
         raise ValueError("Package must specify an HTTP(S) activation server origin")
@@ -60,11 +71,15 @@ def publish_update(data_dir, release_dir, signing_key):
             raise ValueError(f"Invalid size or SHA-256 for {name}")
         artifacts[kind] = {"bytes": size, "sha256": digest}
 
-    updates = data_dir / "updates"
-    updates.mkdir(parents=True, exist_ok=True)
     target = updates / version
     if target.exists():
         raise ValueError(f"Version {version} is already published")
+    # An upload may still be in progress. Check both sizes before staging either file.
+    for kind, name in names.items():
+        if (release_dir / name).stat().st_size != artifacts[kind]["bytes"]:
+            raise ValueError(f"Size mismatch for {name}")
+
+    updates.mkdir(parents=True, exist_ok=True)
     stage = Path(tempfile.mkdtemp(prefix=".publishing-", dir=updates))
     try:
         for kind, name in names.items():
@@ -93,3 +108,21 @@ def publish_update(data_dir, release_dir, signing_key):
                 (stage / name).unlink(missing_ok=True)
             stage.rmdir()
     return version
+
+
+def watch_distribution(data_dir, release_dir, signing_key, stop):
+    logger = logging.getLogger("uvicorn.error")
+    manifest = release_dir / "manifest.json"
+    last_error = None
+    while not stop.is_set():
+        try:
+            version = publish_update(data_dir, release_dir, signing_key, newer_only=True) if manifest.is_file() else None
+        except (OSError, ValueError) as error:
+            if str(error) != last_error:
+                logger.warning("Cannot publish update from %s: %s", release_dir, error)
+                last_error = str(error)
+        else:
+            last_error = None
+            if version is not None:
+                logger.info("Published Windows x64 update %s from %s", version, release_dir)
+        stop.wait(DISTRIBUTION_POLL_SECONDS)
