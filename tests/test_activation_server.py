@@ -278,3 +278,25 @@ class ActivationServerTests(unittest.TestCase):
         wait_for_version("0.10.0")
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer"), (200, installer.name))
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer"), (200, artifact_names("0.9.0")["installer"]))
+
+    def test_admin_page_renders_summary_stats_and_row_metadata(self):
+        self.start_server()
+        auth = b"test-admin:test-password"
+        uid_active = "1" * 64
+        uid_expired_disabled = "2" * 64
+        self.registry.issue(uid_active, "0.9.0", local_ip="192.168.1.10", computer_name='Node"A"<1>')
+        self.now -= 100000
+        self.registry.issue(uid_expired_disabled, "0.8.0", local_ip="192.168.1.2", computer_name="NodeB")
+        self.registry.set_auto_issue(uid_expired_disabled, False)
+        self.now += 100000
+
+        status, html = self.request("GET", "/admin", auth=auth)
+        self.assertEqual(status, 200)
+        self.assertIn(f'data-server-now="{self.now}"', html)
+        self.assertIn('<strong class="stat-value" id="stat-total">2</strong>', html)
+        self.assertIn('<strong class="stat-value" id="stat-enabled">1</strong>', html)
+        self.assertIn('<strong class="stat-value" id="stat-disabled">1</strong>', html)
+        self.assertIn('<strong class="stat-value" id="stat-active">1</strong>', html)
+        self.assertIn('data-computer="Node&quot;A&quot;&lt;1&gt;"', html)
+        self.assertIn(f'data-uid="{uid_expired_disabled}"', html)
+        self.assertIn('data-auto-issue="0"', html)

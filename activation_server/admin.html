@@ -4,51 +4,1667 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>PerfLens 激活管理</title>
+  <script>
+    (function () {
+      try {
+        var theme = localStorage.getItem("perflens-admin-theme");
+        if (theme === "light" || theme === "dark") {
+          document.documentElement.setAttribute("data-theme", theme);
+        }
+      } catch (e) {}
+    })();
+  </script>
   <style>
-    :root { color-scheme: light dark; font: 15px/1.55 system-ui, sans-serif; }
-    body { margin: 0; background: Canvas; color: CanvasText; }
-    main { max-width: 78rem; margin: auto; padding: clamp(1rem, 4vw, 3rem); }
-    h1, h2 { line-height: 1.2; }
-    section { margin-top: 2rem; }
-    .policy { padding: 1rem 1.25rem; border: 1px solid GrayText; border-radius: .6rem; }
-    .policy h2 { margin-top: 0; }
-    button, input { font: inherit; padding: .3rem .65rem; }
-    button { cursor: pointer; }
-    input[type=number] { width: 8rem; margin: 0 .4rem; }
-    .clients { overflow-x: auto; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { padding: .7rem; text-align: left; border-bottom: 1px solid GrayText; }
-    td:not(:first-child), th { white-space: nowrap; }
-    td.computer-name { max-width: 16rem; white-space: normal; overflow-wrap: anywhere; }
-    code { display: block; min-width: 12rem; overflow-wrap: anywhere; }
+    :root {
+      color-scheme: light dark;
+      --bg: #f3f5f8;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --surface-hover: #f1f5f9;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --accent-soft: rgba(37, 99, 235, 0.1);
+      --ok: #047857;
+      --ok-bg: rgba(16, 185, 129, 0.12);
+      --ok-hover: rgba(16, 185, 129, 0.2);
+      --warn: #b45309;
+      --warn-bg: rgba(245, 158, 11, 0.14);
+      --danger: #dc2626;
+      --danger-bg: rgba(239, 68, 68, 0.1);
+      --danger-hover: rgba(239, 68, 68, 0.18);
+      --off: #475569;
+      --off-bg: rgba(100, 116, 139, 0.14);
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.12);
+      --radius: 0.75rem;
+      --radius-sm: 0.5rem;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0b1120;
+        --surface: #111827;
+        --surface-2: #172033;
+        --surface-hover: #1e293b;
+        --border: #1f2937;
+        --border-strong: #334155;
+        --text: #f1f5f9;
+        --text-muted: #94a3b8;
+        --accent: #3b82f6;
+        --accent-hover: #60a5fa;
+        --accent-soft: rgba(59, 130, 246, 0.16);
+        --ok: #34d399;
+        --ok-bg: rgba(16, 185, 129, 0.16);
+        --ok-hover: rgba(16, 185, 129, 0.26);
+        --warn: #fbbf24;
+        --warn-bg: rgba(245, 158, 11, 0.16);
+        --danger: #f87171;
+        --danger-bg: rgba(248, 113, 113, 0.14);
+        --danger-hover: rgba(248, 113, 113, 0.24);
+        --off: #94a3b8;
+        --off-bg: rgba(148, 163, 184, 0.15);
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+        --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.45);
+      }
+    }
+
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0b1120;
+      --surface: #111827;
+      --surface-2: #172033;
+      --surface-hover: #1e293b;
+      --border: #1f2937;
+      --border-strong: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #60a5fa;
+      --accent-soft: rgba(59, 130, 246, 0.16);
+      --ok: #34d399;
+      --ok-bg: rgba(16, 185, 129, 0.16);
+      --ok-hover: rgba(16, 185, 129, 0.26);
+      --warn: #fbbf24;
+      --warn-bg: rgba(245, 158, 11, 0.16);
+      --danger: #f87171;
+      --danger-bg: rgba(248, 113, 113, 0.14);
+      --danger-hover: rgba(248, 113, 113, 0.24);
+      --off: #94a3b8;
+      --off-bg: rgba(148, 163, 184, 0.15);
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+      --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.45);
+    }
+
+    :root[data-theme="light"] {
+      color-scheme: light;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Microsoft YaHei UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    main {
+      max-width: 86rem;
+      margin: 0 auto;
+      padding: clamp(1rem, 3vw, 2rem);
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    h1, h2 { margin: 0; line-height: 1.25; font-weight: 650; letter-spacing: -0.01em; }
+    h1 { font-size: 1.45rem; }
+    h2 { font-size: 1.05rem; }
+    p { margin: 0; }
+
+    button, input { font: inherit; color: inherit; }
+
+    button:focus-visible, input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-mark {
+      width: 2rem;
+      height: 2rem;
+      border-radius: 0.55rem;
+      background: var(--accent);
+      color: #fff;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .version-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.65rem;
+      border-radius: 999px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .version-pill strong {
+      color: var(--text);
+      font-family: var(--mono);
+      font-weight: 600;
+    }
+
+    .topbar-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .sync-hint {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      margin-right: 0.25rem;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.38rem;
+      padding: 0.42rem 0.8rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      cursor: pointer;
+      font-weight: 500;
+      transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, opacity 140ms ease;
+      white-space: nowrap;
+    }
+
+    .btn:hover:not(:disabled) { background: var(--surface-hover); }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-sm { padding: 0.28rem 0.65rem; font-size: 0.84rem; }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--border);
+    }
+
+    .btn-stop {
+      color: var(--danger);
+      background: var(--danger-bg);
+      border-color: transparent;
+    }
+    .btn-stop:hover:not(:disabled) { background: var(--danger-hover); }
+
+    .btn-enable {
+      color: var(--ok);
+      background: var(--ok-bg);
+      border-color: transparent;
+    }
+    .btn-enable:hover:not(:disabled) {
+      background: var(--ok-hover);
+    }
+
+    .spin { animation: spin 700ms linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+      gap: 0.85rem;
+    }
+
+    .stat-card {
+      text-align: left;
+      padding: 0.9rem 1.05rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      transition: border-color 140ms ease, background-color 140ms ease, transform 120ms ease;
+    }
+
+    .stat-card:hover { border-color: var(--border-strong); background: var(--surface-2); }
+    .stat-card[aria-pressed="true"] {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .stat-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .stat-dot {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      background: var(--border-strong);
+    }
+    .stat-dot.ok { background: var(--ok); }
+    .stat-dot.off { background: var(--off); }
+    .stat-dot.accent { background: var(--accent); }
+
+    .stat-value {
+      font-size: 1.55rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.15rem 1.25rem;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .policy {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .policy-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.5rem 1rem;
+    }
+
+    .muted-note {
+      font-size: 0.86rem;
+      color: var(--text-muted);
+    }
+
+    .policy-form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .policy-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .policy-field {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 500;
+    }
+
+    .input {
+      padding: 0.42rem 0.65rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong);
+      background: var(--surface-2);
+      transition: border-color 140ms ease, background-color 140ms ease;
+    }
+    .input:hover { border-color: var(--text-muted); }
+    .input:focus { background: var(--surface); border-color: var(--accent); outline: none; }
+
+    #duration-input {
+      width: 8.5rem;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+    }
+
+    .duration-preview {
+      font-size: 0.88rem;
+      color: var(--accent);
+      font-weight: 500;
+      padding: 0.2rem 0.55rem;
+      border-radius: var(--radius-sm);
+      background: var(--accent-soft);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .duration-preview.is-invalid {
+      color: var(--danger);
+      background: var(--danger-bg);
+    }
+
+    .dirty-pill {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--warn);
+      background: var(--warn-bg);
+      padding: 0.18rem 0.55rem;
+      border-radius: 999px;
+    }
+
+    .preset-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .preset-label {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      margin-right: 0.15rem;
+    }
+
+    .chip {
+      padding: 0.24rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      font-size: 0.82rem;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 130ms ease;
+    }
+    .chip:hover { border-color: var(--border-strong); color: var(--text); }
+    .chip.is-active {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .clients-card {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .clients-header {
+      padding: 1.15rem 1.25rem 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .clients-title-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.5rem 1rem;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .search-box {
+      position: relative;
+      flex: 1 1 18rem;
+      max-width: 26rem;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.7rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    #client-search {
+      width: 100%;
+      padding-left: 2.15rem;
+      padding-right: 2rem;
+    }
+
+    #client-search::-webkit-search-cancel-button {
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .search-clear {
+      position: absolute;
+      right: 0.35rem;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      width: 1.5rem;
+      height: 1.5rem;
+      border-radius: 50%;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+    }
+    .search-clear:hover { background: var(--surface-hover); color: var(--text); }
+    .search-clear[hidden] { display: none; }
+
+    .filter-group {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .filter-pill {
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      font-size: 0.82rem;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-variant-numeric: tabular-nums;
+      transition: all 130ms ease;
+    }
+    .filter-pill:hover { border-color: var(--border-strong); color: var(--text); }
+    .filter-pill[aria-pressed="true"] {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      max-height: 70vh;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      text-align: left;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border-strong);
+      padding: 0;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    thead th.th-plain {
+      padding: 0.65rem 0.85rem;
+    }
+
+    .sort-btn {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      padding: 0.65rem 0.85rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      cursor: pointer;
+      color: inherit;
+      font-weight: inherit;
+      text-align: left;
+    }
+    .sort-btn:hover { color: var(--text); background: var(--surface-hover); }
+    .sort-btn[data-active="true"] { color: var(--accent); }
+    .sort-arrow { font-size: 0.78rem; opacity: 0.55; }
+    .sort-btn[data-active="true"] .sort-arrow { opacity: 1; }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background-color 100ms ease;
+    }
+    tbody tr:last-child { border-bottom: 0; }
+    tbody tr:hover { background: var(--surface-hover); }
+    tbody tr[hidden] { display: none; }
+
+    td {
+      padding: 0.68rem 0.85rem;
+      vertical-align: middle;
+      font-variant-numeric: tabular-nums;
+    }
+
+    td:not(:first-child):not(.computer-name) { white-space: nowrap; }
+    td.computer-name { min-width: 8rem; max-width: 15rem; overflow-wrap: anywhere; }
+
+    .uid-cell { min-width: 13rem; }
+
+    .uid-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      max-width: 100%;
+    }
+
+    .uid-code {
+      font-family: var(--mono);
+      font-size: 0.84rem;
+      padding: 0.14rem 0.42rem;
+      border-radius: 0.35rem;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      user-select: all;
+      transition: border-color 120ms ease;
+    }
+    .uid-code:hover { border-color: var(--accent); }
+    .uid-code.is-expanded {
+      word-break: break-all;
+      white-space: normal;
+      max-width: 24rem;
+    }
+
+    .uid-copy {
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 0.22rem;
+      border-radius: 0.35rem;
+      cursor: pointer;
+      display: inline-grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+    .uid-copy:hover { background: var(--surface-hover); color: var(--text); border-color: var(--border); }
+    .uid-copy.is-copied { color: var(--ok); }
+
+    .ts-main {
+      display: block;
+      font-size: 0.86rem;
+    }
+
+    .ts-sub {
+      display: inline-block;
+      margin-top: 0.12rem;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+    }
+
+    .sub-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.05rem 0.42rem;
+      border-radius: 999px;
+      font-size: 0.74rem;
+      font-weight: 500;
+      margin-top: 0.16rem;
+    }
+    .sub-ok { color: var(--ok); background: var(--ok-bg); }
+    .sub-warn { color: var(--warn); background: var(--warn-bg); }
+    .sub-expired { color: var(--danger); background: var(--danger-bg); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.18rem 0.55rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .badge::before {
+      content: "";
+      width: 0.42rem;
+      height: 0.42rem;
+      border-radius: 50%;
+      background: currentColor;
+    }
+    .badge-ok { color: var(--ok); background: var(--ok-bg); }
+    .badge-off { color: var(--off); background: var(--off-bg); }
+
+    .toggle-form { display: inline; }
+
     tbody:empty { display: none; }
     tbody:not(:empty) + tfoot { display: none; }
+
+    .empty-cell {
+      text-align: center;
+      padding: 2.5rem 1rem;
+      color: var(--text-muted);
+    }
+
+    .filter-empty {
+      padding: 2.25rem 1rem;
+      text-align: center;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    .filter-empty[hidden] { display: none; }
+
+    .toast-container {
+      position: fixed;
+      right: 1.25rem;
+      bottom: 1.25rem;
+      z-index: 50;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-width: min(24rem, calc(100vw - 2rem));
+      pointer-events: none;
+    }
+
+    .toast {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.7rem 0.9rem;
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      box-shadow: var(--shadow-md);
+      font-size: 0.88rem;
+      animation: toast-in 160ms ease-out;
+    }
+    .toast.toast-ok { border-left: 4px solid var(--ok); }
+    .toast.toast-error { border-left: 4px solid var(--danger); }
+
+    .toast-close {
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0.15rem 0.3rem;
+      border-radius: 0.25rem;
+    }
+    .toast-close:hover { color: var(--text); background: var(--surface-hover); }
+
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 640px) {
+      .topbar { align-items: flex-start; }
+      .clients-header, .card { padding-left: 1rem; padding-right: 1rem; }
+      td, .sort-btn, thead th.th-plain { padding-left: 0.65rem; padding-right: 0.65rem; }
+    }
   </style>
 </head>
 <body>
-  <main>
-    <h1>PerfLens 激活管理</h1>
-    <p>当前发布版本 <strong>$latest_version</strong></p>
-    <section class="policy" aria-labelledby="policy">
-      <h2 id="policy">签发策略</h2>
-      <form method="post" action="/admin/settings">
-        <input type="hidden" name="csrf" value="$csrf">
-        <label>有效期（分钟）<input type="number" name="duration_minutes" min="1" step="1" value="$duration" required></label>
-        <button type="submit">保存有效期</button>
-      </form>
-      <p>新 UID 自动登记并签发。调整有效期或停发对后续签发请求生效，已领到的授权在到期前有效。</p>
+  <main id="app-root" data-server-now="$server_now">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="m9 12 2 2 4-4"/>
+          </svg>
+        </div>
+        <h1>PerfLens 激活管理</h1>
+        <p id="latest-version-pill" class="version-pill">当前发布版本 <strong>$latest_version</strong></p>
+      </div>
+      <div class="topbar-actions">
+        <span id="sync-hint" class="sync-hint" aria-live="polite"></span>
+        <button type="button" id="tz-toggle" class="btn btn-sm" title="切换时间显示时区">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+          </svg>
+          <span id="tz-label">本地时间</span>
+        </button>
+        <button type="button" id="theme-toggle" class="btn btn-sm" title="切换浅色/深色主题">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+          </svg>
+          <span id="theme-label">主题</span>
+        </button>
+        <button type="button" id="refresh-btn" class="btn btn-sm">
+          <svg id="refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>
+          </svg>
+          <span>立即刷新</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="stats-grid" aria-label="客户端概览统计">
+      <button type="button" class="stat-card" data-stat-filter="all" aria-pressed="true">
+        <span class="stat-label"><span>已登记客户端</span><span class="stat-dot accent"></span></span>
+        <strong class="stat-value" id="stat-total">$count</strong>
+      </button>
+      <button type="button" class="stat-card" data-stat-filter="enabled" aria-pressed="false">
+        <span class="stat-label"><span>允许自动签发</span><span class="stat-dot ok"></span></span>
+        <strong class="stat-value" id="stat-enabled">$enabled_count</strong>
+      </button>
+      <button type="button" class="stat-card" data-stat-filter="disabled" aria-pressed="false">
+        <span class="stat-label"><span>已停发</span><span class="stat-dot off"></span></span>
+        <strong class="stat-value" id="stat-disabled">$disabled_count</strong>
+      </button>
+      <button type="button" class="stat-card" data-stat-filter="active" aria-pressed="false">
+        <span class="stat-label"><span>当前有效授权</span><span class="stat-dot ok"></span></span>
+        <strong class="stat-value" id="stat-active">$active_lease_count</strong>
+      </button>
     </section>
-    <section aria-labelledby="clients">
-      <h2 id="clients">已登记客户端（$count）</h2>
-      <p>时间均为 UTC。计算机名、本机 IP 和客户端版本来自最近一次成功上报。</p>
-      <div class="clients">
+
+    <section class="card policy" aria-labelledby="policy">
+      <div class="policy-head">
+        <h2 id="policy">签发策略</h2>
+        <p class="muted-note">新 UID 自动登记并签发。调整有效期或停发对后续签发请求生效，已领到的授权在到期前有效。</p>
+      </div>
+      <form id="policy-form" class="policy-form" method="post" action="/admin/settings" data-saved-duration="$duration">
+        <input type="hidden" name="csrf" value="$csrf">
+        <div class="policy-row">
+          <label class="policy-field" for="duration-input">
+            <span>有效期（分钟）</span>
+            <input id="duration-input" class="input" type="number" name="duration_minutes" min="1" step="1" value="$duration" required>
+          </label>
+          <span id="duration-preview" class="duration-preview" aria-live="polite"></span>
+          <span id="policy-dirty" class="dirty-pill" hidden>未保存修改</span>
+          <button id="policy-submit" type="submit" class="btn btn-primary">保存有效期</button>
+        </div>
+        <div class="preset-row" aria-label="常用有效期预设">
+          <span class="preset-label">常用预设：</span>
+          <button type="button" class="chip preset-btn" data-minutes="60">1 小时 (60)</button>
+          <button type="button" class="chip preset-btn" data-minutes="1440">1 天 (1440)</button>
+          <button type="button" class="chip preset-btn" data-minutes="10080">7 天 (10080)</button>
+          <button type="button" class="chip preset-btn" data-minutes="43200">30 天 (43200)</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card clients-card" aria-labelledby="clients">
+      <div class="clients-header">
+        <div class="clients-title-row">
+          <h2 id="clients">已登记客户端（<span id="clients-count">$count</span>）</h2>
+          <p class="muted-note">计算机名、本机 IP 和客户端版本来自最近一次成功上报。点击表头可排序，点击 UID 可展开完整值。</p>
+        </div>
+        <div class="toolbar">
+          <div class="search-box">
+            <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+            <input id="client-search" class="input" type="search" placeholder="搜索 UID / 计算机名 / IP / 版本… (按 / 聚焦)" autocomplete="off">
+            <button type="button" id="search-clear" class="search-clear" title="清空搜索" aria-label="清空搜索" hidden>×</button>
+          </div>
+          <div class="filter-group" role="group" aria-label="按状态筛选">
+            <button type="button" class="filter-pill" data-filter="all" aria-pressed="true">全部 (<span data-count-for="all">$count</span>)</button>
+            <button type="button" class="filter-pill" data-filter="enabled" aria-pressed="false">启用 (<span data-count-for="enabled">$enabled_count</span>)</button>
+            <button type="button" class="filter-pill" data-filter="disabled" aria-pressed="false">停发 (<span data-count-for="disabled">$disabled_count</span>)</button>
+            <button type="button" class="filter-pill" data-filter="active" aria-pressed="false">授权有效 (<span data-count-for="active">$active_lease_count</span>)</button>
+            <button type="button" class="filter-pill" data-filter="expired" aria-pressed="false">已过期 (<span data-count-for="expired">0</span>)</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
         <table>
-          <thead><tr><th scope="col">UID</th><th scope="col">计算机名</th><th scope="col">本机 IP</th><th scope="col">客户端版本</th><th scope="col">首次登记</th><th scope="col">最近请求</th><th scope="col">最近签发到期</th><th scope="col">自动签发</th><th scope="col">操作</th></tr></thead>
-          <tbody>$rows</tbody>
-          <tfoot><tr><td colspan="9">等待首个客户端注册。</td></tr></tfoot>
+          <thead>
+            <tr>
+              <th scope="col"><button type="button" class="sort-btn" data-sort="uid"><span>UID</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th scope="col"><button type="button" class="sort-btn" data-sort="computer"><span>计算机名</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th scope="col"><button type="button" class="sort-btn" data-sort="ip"><span>本机 IP</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th scope="col"><button type="button" class="sort-btn" data-sort="version"><span>客户端版本</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th scope="col"><button type="button" class="sort-btn" data-sort="firstSeen"><span>首次登记</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th scope="col"><button type="button" class="sort-btn" data-sort="lastSeen" data-active="true"><span>最近请求</span><span class="sort-arrow" aria-hidden="true">↓</span></button></th>
+              <th scope="col"><button type="button" class="sort-btn" data-sort="expiresAt"><span>最近签发到期</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th scope="col"><button type="button" class="sort-btn" data-sort="autoIssue"><span>自动签发</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+              <th scope="col" class="th-plain">操作</th>
+            </tr>
+          </thead>
+          <tbody id="clients-tbody">$rows</tbody>
+          <tfoot><tr><td colspan="9" class="empty-cell">等待首个客户端注册。</td></tr></tfoot>
         </table>
+      </div>
+
+      <div id="filter-empty" class="filter-empty" hidden>
+        <p id="filter-empty-text">没有符合当前搜索或筛选条件的客户端。</p>
+        <button type="button" id="clear-filters-btn" class="btn btn-sm">重置搜索与筛选</button>
       </div>
     </section>
   </main>
+
+  <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var appRoot = document.getElementById("app-root");
+      var policyForm = document.getElementById("policy-form");
+      var durationInput = document.getElementById("duration-input");
+      var durationPreview = document.getElementById("duration-preview");
+      var policyDirty = document.getElementById("policy-dirty");
+      var policySubmit = document.getElementById("policy-submit");
+      var presetBtns = document.querySelectorAll(".preset-btn");
+
+      var searchInput = document.getElementById("client-search");
+      var searchClear = document.getElementById("search-clear");
+      var filterBtns = document.querySelectorAll(".filter-pill");
+      var statBtns = document.querySelectorAll(".stat-card[data-stat-filter]");
+      var sortBtns = document.querySelectorAll(".sort-btn");
+      var tbody = document.getElementById("clients-tbody");
+      var filterEmpty = document.getElementById("filter-empty");
+      var clearFiltersBtn = document.getElementById("clear-filters-btn");
+
+      var tzToggle = document.getElementById("tz-toggle");
+      var tzLabel = document.getElementById("tz-label");
+      var themeToggle = document.getElementById("theme-toggle");
+      var themeLabel = document.getElementById("theme-label");
+      var refreshBtn = document.getElementById("refresh-btn");
+      var refreshIcon = document.getElementById("refresh-icon");
+      var syncHint = document.getElementById("sync-hint");
+      var toastContainer = document.getElementById("toast-container");
+
+      var state = {
+        serverNow: parseInt(appRoot.getAttribute("data-server-now"), 10) || Math.floor(Date.now() / 1000),
+        loadedAtMs: Date.now(),
+        tzMode: storageGet("perflens-admin-tz", "local") === "utc" ? "utc" : "local",
+        search: "",
+        filter: "all",
+        sortKey: "lastSeen",
+        sortDir: "desc",
+        expandedUids: new Set(),
+        refreshing: false
+      };
+
+      function storageGet(key, fallback) {
+        try {
+          var v = localStorage.getItem(key);
+          return v !== null ? v : fallback;
+        } catch (e) {
+          return fallback;
+        }
+      }
+
+      function storageSet(key, val) {
+        try {
+          localStorage.setItem(key, val);
+        } catch (e) {}
+      }
+
+      function currentServerNow() {
+        return state.serverNow + Math.floor((Date.now() - state.loadedAtMs) / 1000);
+      }
+
+      function pad2(n) {
+        return n < 10 ? "0" + n : String(n);
+      }
+
+      function formatAbsolute(ts, mode) {
+        var d = new Date(ts * 1000);
+        if (mode === "utc") {
+          return d.getUTCFullYear() + "-" + pad2(d.getUTCMonth() + 1) + "-" + pad2(d.getUTCDate()) + " " +
+            pad2(d.getUTCHours()) + ":" + pad2(d.getUTCMinutes()) + ":" + pad2(d.getUTCSeconds());
+        }
+        return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) + " " +
+          pad2(d.getHours()) + ":" + pad2(d.getMinutes()) + ":" + pad2(d.getSeconds());
+      }
+
+      function formatSpan(seconds) {
+        var abs = Math.abs(seconds);
+        if (abs < 60) {
+          return abs + " 秒";
+        }
+        var mins = Math.floor(abs / 60);
+        if (mins < 60) {
+          return mins + " 分钟";
+        }
+        var hours = Math.floor(mins / 60);
+        var remMins = mins % 60;
+        if (hours < 24) {
+          return remMins ? hours + " 小时 " + remMins + " 分钟" : hours + " 小时";
+        }
+        var days = Math.floor(hours / 24);
+        var remHours = hours % 24;
+        return remHours ? days + " 天 " + remHours + " 小时" : days + " 天";
+      }
+
+      function formatDurationMinutes(minutes) {
+        if (!Number.isFinite(minutes) || minutes < 1 || Math.floor(minutes) !== minutes) {
+          return null;
+        }
+        var days = Math.floor(minutes / 1440);
+        var rem = minutes % 1440;
+        var hours = Math.floor(rem / 60);
+        var mins = rem % 60;
+        var parts = [];
+        if (days) parts.push(days + " 天");
+        if (hours) parts.push(hours + " 小时");
+        if (mins || parts.length === 0) parts.push(mins + " 分钟");
+        return "= " + parts.join(" ");
+      }
+
+      function updateDurationUI() {
+        var raw = durationInput.value.trim();
+        var num = isDigitsOnly(raw) ? parseInt(raw, 10) : NaN;
+        var saved = policyForm.getAttribute("data-saved-duration") || "";
+        var formatted = formatDurationMinutes(num);
+
+        if (formatted) {
+          durationPreview.textContent = formatted;
+          durationPreview.classList.remove("is-invalid");
+        } else {
+          durationPreview.textContent = "请输入大于 0 的整数";
+          durationPreview.classList.add("is-invalid");
+        }
+
+        var isDirty = raw !== saved;
+        policyDirty.hidden = !isDirty;
+        for (var i = 0; i < presetBtns.length; i++) {
+          var btn = presetBtns[i];
+          btn.classList.toggle("is-active", btn.getAttribute("data-minutes") === raw);
+        }
+      }
+
+      function shortUid(uid) {
+        return uid.length > 16 ? uid.slice(0, 8) + "…" + uid.slice(-6) : uid;
+      }
+
+      function showToast(message, kind) {
+        var toast = document.createElement("div");
+        toast.className = "toast " + (kind === "error" ? "toast-error" : "toast-ok");
+        toast.setAttribute("role", "status");
+
+        var span = document.createElement("span");
+        span.textContent = message;
+
+        var closeBtn = document.createElement("button");
+        closeBtn.type = "button";
+        closeBtn.className = "toast-close";
+        closeBtn.setAttribute("aria-label", "关闭提示");
+        closeBtn.textContent = "×";
+        closeBtn.addEventListener("click", function () {
+          toast.remove();
+        });
+
+        toast.appendChild(span);
+        toast.appendChild(closeBtn);
+        toastContainer.appendChild(toast);
+
+        setTimeout(function () {
+          if (toast.parentNode) {
+            toast.remove();
+          }
+        }, kind === "error" ? 5000 : 3200);
+      }
+
+      function copyText(text) {
+        if (navigator.clipboard && window.isSecureContext) {
+          return navigator.clipboard.writeText(text).catch(function () {
+            return fallbackCopy(text);
+          });
+        }
+        return fallbackCopy(text);
+      }
+
+      function fallbackCopy(text) {
+        return new Promise(function (resolve, reject) {
+          var area = document.createElement("textarea");
+          area.value = text;
+          area.setAttribute("readonly", "");
+          area.style.position = "fixed";
+          area.style.top = "0";
+          area.style.left = "-9999px";
+          document.body.appendChild(area);
+          area.focus({ preventScroll: true });
+          area.select();
+          area.setSelectionRange(0, text.length);
+          try {
+            var ok = document.execCommand("copy");
+            document.body.removeChild(area);
+            if (ok) resolve();
+            else reject(new Error("copy failed"));
+          } catch (err) {
+            document.body.removeChild(area);
+            reject(err);
+          }
+        });
+      }
+
+      function createCopyIcon(copied) {
+        if (copied) {
+          return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m20 6-11 11-5-5"/></svg>';
+        }
+        return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      }
+
+      function renderTimestampCell(cell, now) {
+        var raw = cell.getAttribute("data-ts");
+        if (!raw) {
+          cell.innerHTML = '<span class="ts-main">—</span><span class="ts-sub">未签发</span>';
+          cell.removeAttribute("title");
+          return;
+        }
+        var ts = parseInt(raw, 10);
+        if (!Number.isFinite(ts)) {
+          return;
+        }
+        var isExpiry = cell.classList.contains("expiry-cell");
+        var mainText = formatAbsolute(ts, state.tzMode);
+        var altLabel = state.tzMode === "utc" ? "本地: " + formatAbsolute(ts, "local") : "UTC: " + formatAbsolute(ts, "utc");
+        cell.setAttribute("title", altLabel);
+
+        var subHtml;
+        var diff = ts - now;
+        if (isExpiry) {
+          if (diff > 0) {
+            var cls = diff < 3600 ? "sub-tag sub-warn" : "sub-tag sub-ok";
+            var prefix = diff < 3600 ? "即将到期 · 剩余 " : "剩余 ";
+            subHtml = '<span class="' + cls + '">' + prefix + formatSpan(diff) + "</span>";
+          } else {
+            subHtml = '<span class="sub-tag sub-expired">已过期 · ' + formatSpan(diff) + "前</span>";
+          }
+        } else {
+          if (diff <= 0 && Math.abs(diff) < 30) {
+            subHtml = '<span class="ts-sub">刚刚</span>';
+          } else if (diff <= 0) {
+            subHtml = '<span class="ts-sub">' + formatSpan(diff) + "前</span>";
+          } else {
+            subHtml = '<span class="ts-sub">' + formatSpan(diff) + "后</span>";
+          }
+        }
+        cell.innerHTML = '<span class="ts-main">' + mainText + "</span>" + subHtml;
+      }
+
+      function enhanceRows() {
+        var now = currentServerNow();
+        var rows = tbody.querySelectorAll("tr");
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var uid = row.getAttribute("data-uid") || "";
+          var uidCell = row.querySelector(".uid-cell");
+          if (uidCell && !uidCell.getAttribute("data-enhanced")) {
+            var codeEl = uidCell.querySelector(".uid-code");
+            if (codeEl) {
+              var wrap = document.createElement("div");
+              wrap.className = "uid-wrap";
+              var copyBtn = document.createElement("button");
+              copyBtn.type = "button";
+              copyBtn.className = "uid-copy";
+              copyBtn.setAttribute("aria-label", "复制 UID " + uid);
+              copyBtn.setAttribute("title", "复制完整 UID");
+              copyBtn.innerHTML = createCopyIcon(false);
+
+              codeEl.parentNode.insertBefore(wrap, codeEl);
+              wrap.appendChild(codeEl);
+              wrap.appendChild(copyBtn);
+              uidCell.setAttribute("data-enhanced", "1");
+            }
+          }
+
+          var codeNode = row.querySelector(".uid-code");
+          if (codeNode) {
+            var expanded = state.expandedUids.has(uid);
+            codeNode.classList.toggle("is-expanded", expanded);
+            codeNode.textContent = expanded ? uid : shortUid(uid);
+            codeNode.setAttribute("title", expanded ? "点击收起 UID" : "点击展开完整 UID: " + uid);
+          }
+
+          var tsCells = row.querySelectorAll(".ts-cell");
+          for (var j = 0; j < tsCells.length; j++) {
+            renderTimestampCell(tsCells[j], now);
+          }
+        }
+      }
+
+      function parseIpTuple(ip) {
+        if (!ip) return null;
+        if (ip.indexOf(":") === -1) {
+          var parts = ip.split(".");
+          if (parts.length === 4) {
+            var nums = parts.map(function (p) { return parseInt(p, 10); });
+            if (nums.every(function (n) { return Number.isFinite(n); })) {
+              return [4].concat(nums);
+            }
+          }
+        } else {
+          // Expand "::" shorthand so IPv6 addresses compare numerically by 16-bit hextet.
+          var halves = ip.split("::");
+          var head = halves[0] ? halves[0].split(":") : [];
+          var tail = halves[1] ? halves[1].split(":") : [];
+          var missing = 8 - head.length - tail.length;
+          if (missing >= 0) {
+            var full = head;
+            for (var k = 0; k < missing; k++) full.push("0");
+            full = full.concat(tail);
+            return [6].concat(full.map(function (h) { return parseInt(h || "0", 16) || 0; }));
+          }
+        }
+        return null;
+      }
+
+      function compareTuples(a, b) {
+        var len = Math.max(a.length, b.length);
+        for (var i = 0; i < len; i++) {
+          var va = i < a.length ? a[i] : 0;
+          var vb = i < b.length ? b[i] : 0;
+          if (va !== vb) return va - vb;
+        }
+        return 0;
+      }
+
+      function isDigitsOnly(str) {
+        return str.length > 0 && !/[^0-9]/.test(str);
+      }
+
+      function compareVersions(a, b) {
+        var pa = a.split(/[.-]/).map(function (s) { return isDigitsOnly(s) ? parseInt(s, 10) : s; });
+        var pb = b.split(/[.-]/).map(function (s) { return isDigitsOnly(s) ? parseInt(s, 10) : s; });
+        var len = Math.max(pa.length, pb.length);
+        for (var i = 0; i < len; i++) {
+          var va = i < pa.length ? pa[i] : 0;
+          var vb = i < pb.length ? pb[i] : 0;
+          if (typeof va === "number" && typeof vb === "number") {
+            if (va !== vb) return va - vb;
+          } else {
+            var cmp = String(va).localeCompare(String(vb));
+            if (cmp !== 0) return cmp;
+          }
+        }
+        return 0;
+      }
+
+      function compareRows(rowA, rowB, key, dir) {
+        var factor = dir === "asc" ? 1 : -1;
+        var res = 0;
+
+        if (key === "firstSeen" || key === "lastSeen" || key === "expiresAt" || key === "autoIssue") {
+          var attr = key === "firstSeen" ? "data-first-seen" :
+            key === "lastSeen" ? "data-last-seen" :
+            key === "expiresAt" ? "data-expires-at" : "data-auto-issue";
+          var rawA = rowA.getAttribute(attr);
+          var rawB = rowB.getAttribute(attr);
+          var numA = rawA === "" || rawA === null ? null : Number(rawA);
+          var numB = rawB === "" || rawB === null ? null : Number(rawB);
+          if (numA === null && numB === null) res = 0;
+          else if (numA === null) return 1;
+          else if (numB === null) return -1;
+          else res = numA - numB;
+        } else if (key === "ip") {
+          var ipA = rowA.getAttribute("data-ip") || "";
+          var ipB = rowB.getAttribute("data-ip") || "";
+          if (!ipA && !ipB) res = 0;
+          else if (!ipA) return 1;
+          else if (!ipB) return -1;
+          else {
+            var tA = parseIpTuple(ipA);
+            var tB = parseIpTuple(ipB);
+            res = (tA && tB) ? compareTuples(tA, tB) : ipA.localeCompare(ipB);
+          }
+        } else if (key === "version") {
+          var vA = rowA.getAttribute("data-version") || "";
+          var vB = rowB.getAttribute("data-version") || "";
+          if (!vA && !vB) res = 0;
+          else if (!vA) return 1;
+          else if (!vB) return -1;
+          else res = compareVersions(vA, vB);
+        } else if (key === "computer") {
+          var cA = rowA.getAttribute("data-computer") || "";
+          var cB = rowB.getAttribute("data-computer") || "";
+          if (!cA && !cB) res = 0;
+          else if (!cA) return 1;
+          else if (!cB) return -1;
+          else res = cA.localeCompare(cB, "zh-CN");
+        } else {
+          var uA = rowA.getAttribute("data-uid") || "";
+          var uB = rowB.getAttribute("data-uid") || "";
+          res = uA.localeCompare(uB);
+        }
+
+        if (res === 0) {
+          res = (rowA.getAttribute("data-uid") || "").localeCompare(rowB.getAttribute("data-uid") || "");
+        }
+        return res * factor;
+      }
+
+      function applyView() {
+        var now = currentServerNow();
+        var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+        var query = state.search.trim().toLowerCase();
+
+        var counts = { all: rows.length, enabled: 0, disabled: 0, active: 0, expired: 0 };
+        var visibleCount = 0;
+
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var autoIssue = row.getAttribute("data-auto-issue") === "1";
+          var expRaw = row.getAttribute("data-expires-at");
+          var exp = expRaw ? parseInt(expRaw, 10) : null;
+          var isActive = exp !== null && exp > now;
+
+          if (autoIssue) counts.enabled++;
+          else counts.disabled++;
+          if (isActive) counts.active++;
+          else counts.expired++;
+
+          var filterMatch = state.filter === "all" ||
+            (state.filter === "enabled" && autoIssue) ||
+            (state.filter === "disabled" && !autoIssue) ||
+            (state.filter === "active" && isActive) ||
+            (state.filter === "expired" && !isActive);
+
+          var searchMatch = true;
+          if (query) {
+            var haystack = (
+              (row.getAttribute("data-uid") || "") + " " +
+              (row.getAttribute("data-computer") || "") + " " +
+              (row.getAttribute("data-ip") || "") + " " +
+              (row.getAttribute("data-version") || "")
+            ).toLowerCase();
+            searchMatch = haystack.indexOf(query) !== -1;
+          }
+
+          var shown = filterMatch && searchMatch;
+          row.hidden = !shown;
+          if (shown) visibleCount++;
+        }
+
+        rows.sort(function (a, b) {
+          return compareRows(a, b, state.sortKey, state.sortDir);
+        });
+        for (var j = 0; j < rows.length; j++) {
+          tbody.appendChild(rows[j]);
+        }
+
+        document.getElementById("clients-count").textContent = String(counts.all);
+        document.getElementById("stat-total").textContent = String(counts.all);
+        document.getElementById("stat-enabled").textContent = String(counts.enabled);
+        document.getElementById("stat-disabled").textContent = String(counts.disabled);
+        document.getElementById("stat-active").textContent = String(counts.active);
+
+        var countBadges = document.querySelectorAll("[data-count-for]");
+        for (var c = 0; c < countBadges.length; c++) {
+          var key = countBadges[c].getAttribute("data-count-for");
+          if (key in counts) {
+            countBadges[c].textContent = String(counts[key]);
+          }
+        }
+
+        for (var f = 0; f < filterBtns.length; f++) {
+          var fVal = filterBtns[f].getAttribute("data-filter");
+          filterBtns[f].setAttribute("aria-pressed", String(fVal === state.filter));
+        }
+
+        for (var s = 0; s < statBtns.length; s++) {
+          var sVal = statBtns[s].getAttribute("data-stat-filter");
+          statBtns[s].setAttribute("aria-pressed", String(sVal === state.filter));
+        }
+
+        for (var sb = 0; sb < sortBtns.length; sb++) {
+          var sortBtn = sortBtns[sb];
+          var active = sortBtn.getAttribute("data-sort") === state.sortKey;
+          sortBtn.setAttribute("data-active", active ? "true" : "false");
+          var arrow = sortBtn.querySelector(".sort-arrow");
+          if (arrow) {
+            arrow.textContent = active ? (state.sortDir === "asc" ? "↑" : "↓") : "↕";
+          }
+          var th = sortBtn.closest("th");
+          if (th) {
+            if (active) th.setAttribute("aria-sort", state.sortDir === "asc" ? "ascending" : "descending");
+            else th.removeAttribute("aria-sort");
+          }
+        }
+
+        searchClear.hidden = state.search.length === 0;
+        filterEmpty.hidden = !(rows.length > 0 && visibleCount === 0);
+      }
+
+      function syncFromHtml(htmlText, options) {
+        var doc = new DOMParser().parseFromString(htmlText, "text/html");
+        var nextRoot = doc.getElementById("app-root");
+        var nextTbody = doc.getElementById("clients-tbody");
+        var nextPolicyForm = doc.getElementById("policy-form");
+        var nextVersion = doc.querySelector("#latest-version-pill strong");
+        if (!nextRoot || !nextTbody || !nextPolicyForm) {
+          throw new Error("页面响应格式异常");
+        }
+
+        var nextNow = parseInt(nextRoot.getAttribute("data-server-now"), 10);
+        if (Number.isFinite(nextNow)) {
+          state.serverNow = nextNow;
+          state.loadedAtMs = Date.now();
+        }
+
+        var nextCsrf = nextPolicyForm.querySelector('input[name="csrf"]');
+        var currCsrf = policyForm.querySelector('input[name="csrf"]');
+        if (nextCsrf && currCsrf) {
+          currCsrf.value = nextCsrf.value;
+        }
+
+        var savedDur = nextPolicyForm.getAttribute("data-saved-duration") || "";
+        var wasDirty = durationInput.value.trim() !== (policyForm.getAttribute("data-saved-duration") || "");
+        policyForm.setAttribute("data-saved-duration", savedDur);
+        if (options && options.forceDuration) {
+          durationInput.value = savedDur;
+        } else if (!wasDirty) {
+          durationInput.value = savedDur;
+        }
+        updateDurationUI();
+
+        var currVersion = document.querySelector("#latest-version-pill strong");
+        if (nextVersion && currVersion) {
+          currVersion.textContent = nextVersion.textContent;
+        }
+
+        tbody.innerHTML = nextTbody.innerHTML;
+        enhanceRows();
+        applyView();
+        syncHint.textContent = "同步于 " + formatAbsolute(Math.floor(Date.now() / 1000), "local").slice(11);
+      }
+
+      function extractErrorDetail(res, fallback) {
+        return res.text().then(function (body) {
+          try {
+            var data = JSON.parse(body);
+            if (data && data.detail) return String(data.detail);
+          } catch (e) {}
+          return fallback;
+        }).catch(function () {
+          return fallback;
+        });
+      }
+
+      function submitFormAsync(form, submitter, onSuccessMsg) {
+        var params = new URLSearchParams();
+        var inputs = form.querySelectorAll("input[name]");
+        for (var i = 0; i < inputs.length; i++) {
+          params.append(inputs[i].name, inputs[i].value);
+        }
+        if (submitter && submitter.name) {
+          params.append(submitter.name, submitter.value);
+        }
+
+        var btn = submitter || form.querySelector('button[type="submit"]');
+        var prevText = btn ? btn.textContent : "";
+        if (btn) {
+          btn.disabled = true;
+          btn.textContent = "处理中…";
+        }
+
+        return fetch(form.action, {
+          method: "POST",
+          body: params.toString(),
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          credentials: "same-origin",
+          redirect: "follow"
+        }).then(function (res) {
+          if (!res.ok) {
+            return extractErrorDetail(res, "操作失败（HTTP " + res.status + "）").then(function (detail) {
+              if (res.status === 403 && detail.indexOf("CSRF") !== -1) {
+                throw new Error("页面令牌已过期（服务可能已重启），请点击「立即刷新」后重试");
+              }
+              if (res.status === 401) {
+                throw new Error("认证已失效，请重新登录");
+              }
+              throw new Error(detail);
+            });
+          }
+          return res.text().then(function (html) {
+            return { html: html };
+          });
+        }).then(function (result) {
+          syncFromHtml(result.html, { forceDuration: form === policyForm });
+          showToast(onSuccessMsg(), "ok");
+        }).catch(function (err) {
+          showToast(err && err.message ? err.message : "请求失败", "error");
+        }).finally(function () {
+          if (btn && btn.isConnected) {
+            btn.disabled = false;
+            btn.textContent = prevText;
+          }
+        });
+      }
+
+      function refreshAdmin() {
+        if (state.refreshing) return;
+        state.refreshing = true;
+        refreshBtn.disabled = true;
+        refreshIcon.classList.add("spin");
+
+        fetch("/admin", {
+          method: "GET",
+          credentials: "same-origin",
+          cache: "no-store"
+        }).then(function (res) {
+          if (!res.ok) {
+            throw new Error("刷新失败（HTTP " + res.status + "）");
+          }
+          return res.text();
+        }).then(function (html) {
+          syncFromHtml(html, { forceDuration: false });
+          showToast("已刷新最新状态", "ok");
+        }).catch(function (err) {
+          showToast(err && err.message ? err.message : "刷新失败", "error");
+        }).finally(function () {
+          state.refreshing = false;
+          refreshBtn.disabled = false;
+          refreshIcon.classList.remove("spin");
+        });
+      }
+
+      function updateTzUI() {
+        tzLabel.textContent = state.tzMode === "utc" ? "UTC 时间" : "本地时间";
+        try {
+          var tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || "本地";
+          tzToggle.setAttribute("title", "当前: " + (state.tzMode === "utc" ? "UTC" : tzName) + "（点击切换）");
+        } catch (e) {}
+      }
+
+      function effectiveTheme() {
+        var attr = document.documentElement.getAttribute("data-theme");
+        if (attr === "light" || attr === "dark") return attr;
+        return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+
+      function updateThemeUI() {
+        themeLabel.textContent = effectiveTheme() === "dark" ? "浅色主题" : "深色主题";
+      }
+
+      durationInput.addEventListener("input", updateDurationUI);
+
+      for (var p = 0; p < presetBtns.length; p++) {
+        presetBtns[p].addEventListener("click", function () {
+          durationInput.value = this.getAttribute("data-minutes");
+          updateDurationUI();
+          durationInput.focus();
+        });
+      }
+
+      policyForm.addEventListener("submit", function (e) {
+        if (!durationInput.checkValidity()) {
+          return;
+        }
+        e.preventDefault();
+        var mins = durationInput.value.trim();
+        if (!isDigitsOnly(mins) || parseInt(mins, 10) < 1) {
+          showToast("请输入大于 0 的整数分钟", "error");
+          durationInput.focus();
+          return;
+        }
+        var preview = formatDurationMinutes(parseInt(mins, 10)) || "";
+        submitFormAsync(policyForm, policySubmit, function () {
+          return "有效期已保存为 " + mins + " 分钟（" + preview.replace(/^=\s*/, "") + "）";
+        });
+      });
+
+      searchInput.addEventListener("input", function () {
+        state.search = searchInput.value;
+        applyView();
+      });
+
+      searchClear.addEventListener("click", function () {
+        state.search = "";
+        searchInput.value = "";
+        applyView();
+        searchInput.focus();
+      });
+
+      clearFiltersBtn.addEventListener("click", function () {
+        state.search = "";
+        state.filter = "all";
+        searchInput.value = "";
+        applyView();
+      });
+
+      for (var fb = 0; fb < filterBtns.length; fb++) {
+        filterBtns[fb].addEventListener("click", function () {
+          state.filter = this.getAttribute("data-filter") || "all";
+          applyView();
+        });
+      }
+
+      for (var sc = 0; sc < statBtns.length; sc++) {
+        statBtns[sc].addEventListener("click", function () {
+          var target = this.getAttribute("data-stat-filter") || "all";
+          state.filter = (target !== "all" && state.filter === target) ? "all" : target;
+          applyView();
+        });
+      }
+
+      for (var st = 0; st < sortBtns.length; st++) {
+        sortBtns[st].addEventListener("click", function () {
+          var key = this.getAttribute("data-sort");
+          if (state.sortKey === key) {
+            state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
+          } else {
+            state.sortKey = key;
+            state.sortDir = (key === "firstSeen" || key === "lastSeen" || key === "expiresAt" || key === "autoIssue") ? "desc" : "asc";
+          }
+          applyView();
+        });
+      }
+
+      tbody.addEventListener("click", function (e) {
+        var codeEl = e.target.closest(".uid-code");
+        if (codeEl) {
+          var row = codeEl.closest("tr");
+          var uid = row ? row.getAttribute("data-uid") : "";
+          if (uid) {
+            if (state.expandedUids.has(uid)) state.expandedUids.delete(uid);
+            else state.expandedUids.add(uid);
+            enhanceRows();
+          }
+          return;
+        }
+
+        var copyBtn = e.target.closest(".uid-copy");
+        if (copyBtn) {
+          var targetRow = copyBtn.closest("tr");
+          var fullUid = targetRow ? targetRow.getAttribute("data-uid") : "";
+          if (!fullUid) return;
+          copyText(fullUid).then(function () {
+            copyBtn.classList.add("is-copied");
+            copyBtn.innerHTML = createCopyIcon(true);
+            showToast("已复制 UID: " + shortUid(fullUid), "ok");
+            setTimeout(function () {
+              if (copyBtn.isConnected) {
+                copyBtn.classList.remove("is-copied");
+                copyBtn.innerHTML = createCopyIcon(false);
+              }
+            }, 1500);
+          }).catch(function () {
+            showToast("复制失败，请手动选中 UID 复制", "error");
+          });
+        }
+      });
+
+      tbody.addEventListener("submit", function (e) {
+        var form = e.target.closest(".toggle-form");
+        if (!form) return;
+        e.preventDefault();
+        var row = form.closest("tr");
+        var uid = row ? row.getAttribute("data-uid") : "";
+        var name = row ? row.getAttribute("data-computer") : "";
+        var submitter = e.submitter || form.querySelector("button");
+        var enabling = submitter && submitter.value === "1";
+        var label = name ? name + " (" + shortUid(uid) + ")" : shortUid(uid);
+        submitFormAsync(form, submitter, function () {
+          return (enabling ? "已启用自动签发：" : "已停发客户端：") + label;
+        });
+      });
+
+      tzToggle.addEventListener("click", function () {
+        state.tzMode = state.tzMode === "utc" ? "local" : "utc";
+        storageSet("perflens-admin-tz", state.tzMode);
+        updateTzUI();
+        enhanceRows();
+      });
+
+      themeToggle.addEventListener("click", function () {
+        var next = effectiveTheme() === "dark" ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        storageSet("perflens-admin-theme", next);
+        updateThemeUI();
+      });
+
+      refreshBtn.addEventListener("click", refreshAdmin);
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          var tag = document.activeElement ? document.activeElement.tagName : "";
+          if (tag !== "INPUT" && tag !== "TEXTAREA") {
+            e.preventDefault();
+            searchInput.focus();
+            searchInput.select();
+          }
+        } else if (e.key === "Escape" && document.activeElement === searchInput && searchInput.value) {
+          state.search = "";
+          searchInput.value = "";
+          applyView();
+        }
+      });
+
+      updateDurationUI();
+      updateTzUI();
+      updateThemeUI();
+      enhanceRows();
+      applyView();
+    })();
+  </script>
 </body>
 </html>

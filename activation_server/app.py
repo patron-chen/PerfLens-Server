@@ -116,19 +116,26 @@ def _client_row(client, csrf):
     uid = escape(client["uid"])
     allowed = bool(client["auto_issue"])
     label, action, new_value = ("启用", "停发", "0") if allowed else ("停发", "启用", "1")
+    # Attach raw attributes on the row so client-side sorting, filtering, and time formatting do not depend on rendered text.
+    computer_name = escape(client["computer_name"] or "")
+    local_ip = escape(client["local_ip"] or "")
+    client_version = escape(client["client_version"] or "")
+    expires_at = "" if client["expires_at"] is None else str(client["expires_at"])
+    badge_class = "badge badge-ok" if allowed else "badge badge-off"
+    button_class = "btn btn-sm btn-stop" if allowed else "btn btn-sm btn-enable"
     return f"""
-        <tr>
-          <td><code>{uid}</code></td>
+        <tr data-uid="{uid}" data-computer="{computer_name}" data-ip="{local_ip}" data-version="{client_version}" data-first-seen="{client["first_seen"]}" data-last-seen="{client["last_seen"]}" data-expires-at="{expires_at}" data-auto-issue="{1 if allowed else 0}">
+          <td class="uid-cell"><code class="uid-code" title="{uid}">{uid}</code></td>
           <td class="computer-name">{escape(client["computer_name"] or "—")}</td>
           <td>{escape(client["local_ip"] or "—")}</td>
           <td>{escape(client["client_version"] or "—")}</td>
-          <td>{_utc(client["first_seen"])}</td>
-          <td>{_utc(client["last_seen"])}</td>
-          <td>{_utc(client["expires_at"])}</td>
-          <td>{label}</td>
-          <td><form method="post" action="/admin/clients/{uid}">
+          <td class="ts-cell" data-ts="{client["first_seen"]}">{_utc(client["first_seen"])}</td>
+          <td class="ts-cell" data-ts="{client["last_seen"]}">{_utc(client["last_seen"])}</td>
+          <td class="ts-cell expiry-cell" data-ts="{expires_at}">{_utc(client["expires_at"])}</td>
+          <td class="status-cell"><span class="{badge_class}">{label}</span></td>
+          <td class="action-cell"><form method="post" action="/admin/clients/{uid}" class="toggle-form">
             <input type="hidden" name="csrf" value="{csrf}">
-            <button name="auto_issue" value="{new_value}" aria-label="{action} {uid}">{action}</button>
+            <button type="submit" name="auto_issue" value="{new_value}" class="{button_class}" aria-label="{action} {uid}">{action}</button>
           </form></td>
         </tr>
     """
@@ -209,10 +216,27 @@ def create_app(registry, username, password, *, distribution_dir=None):
     @app.get("/admin", response_class=HTMLResponse, dependencies=[Depends(require_admin)])
     def admin():
         duration, clients = registry.view()
+        now = int(registry.clock())
+        enabled_count = sum(1 for client in clients if client["auto_issue"])
+        disabled_count = len(clients) - enabled_count
+        active_lease_count = sum(
+            1 for client in clients if client["expires_at"] is not None and client["expires_at"] > now
+        )
         rows = "".join(_client_row(client, csrf) for client in clients)
-        return HTMLResponse(template.substitute(duration=duration, csrf=csrf, count=len(clients), rows=rows,
-                                               latest_version=latest_version(updates) or "—"),
-                            headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY"})
+        return HTMLResponse(
+            template.substitute(
+                duration=duration,
+                csrf=csrf,
+                count=len(clients),
+                enabled_count=enabled_count,
+                disabled_count=disabled_count,
+                active_lease_count=active_lease_count,
+                server_now=now,
+                rows=rows,
+                latest_version=latest_version(updates) or "—",
+            ),
+            headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY"},
+        )
 
     @app.post("/admin/settings")
     def update_settings(form=Depends(admin_form)):
