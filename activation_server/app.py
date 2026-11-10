@@ -1,6 +1,7 @@
 """SQLite issuance policy and the same-origin admin page."""
 from contextlib import closing
 from html import escape
+import os
 from pathlib import Path
 import secrets
 import sqlite3
@@ -120,9 +121,15 @@ def create_app(registry, username, password):
     csrf = secrets.token_urlsafe(32)
     template = Template(Path(__file__).with_name("admin.html").read_text(encoding="utf-8"))
     updates = Path(registry.path).parent / "updates"
+    # Basic Auth credentials are unencrypted over plain HTTP.
+    allow_http_admin = os.getenv("PERFLENS_ADMIN_ALLOW_HTTP") == "1"
 
     async def require_admin(request: Request):
-        if request.url.scheme != "https" and (not request.client or request.client.host not in {"127.0.0.1", "::1"}):
+        if (
+            not allow_http_admin
+            and request.url.scheme != "https"
+            and (not request.client or request.client.host not in {"127.0.0.1", "::1"})
+        ):
             raise HTTPException(403, "Admin access requires HTTPS or a loopback connection")
         credentials = await basic(request)
         username_ok = secrets.compare_digest(credentials.username.encode(), username.encode())

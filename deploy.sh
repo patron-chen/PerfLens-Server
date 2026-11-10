@@ -9,6 +9,8 @@ listen_port=8787
 python_exe=python3.13
 tls_certfile=''
 tls_keyfile=''
+# Set to 1 to allow HTTP admin on a trusted LAN.
+export PERFLENS_ADMIN_ALLOW_HTTP=0
 
 if [[ -z $PERFLENS_ADMIN_USERNAME || -z $PERFLENS_ADMIN_PASSWORD ]]; then
     printf '%s\n' 'Fill in PERFLENS_ADMIN_USERNAME and PERFLENS_ADMIN_PASSWORD in deploy.sh.' >&2

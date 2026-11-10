@@ -9,6 +9,8 @@ set "ACTIVATION_PORT=8787"
 set "ACTIVATION_PYTHON=python.exe"
 set "ACTIVATION_TLS_CERTFILE="
 set "ACTIVATION_TLS_KEYFILE="
+rem Set to 1 to allow HTTP admin on a trusted LAN.
+set "PERFLENS_ADMIN_ALLOW_HTTP=0"
 
 if not defined PERFLENS_ADMIN_USERNAME goto missing_credentials
 if not defined PERFLENS_ADMIN_PASSWORD goto missing_credentials

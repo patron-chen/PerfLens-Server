@@ -1,4 +1,5 @@
 """Run the issuance and admin routes over loopback with a disposable signing key."""
+import asyncio
 import base64
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
@@ -13,6 +14,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest.mock import patch
 from urllib.parse import urlencode
 
 from cryptography.hazmat.primitives import serialization
@@ -63,6 +65,41 @@ class ActivationServerTests(unittest.TestCase):
             connection.request(method, path, body=data, headers=headers)
             response = connection.getresponse()
             return response.status, response.read().decode("utf-8")
+
+    def test_lan_http_admin_requires_opt_in_and_credentials(self):
+        async def get_admin_status(app, auth=None):
+            headers = [(b"authorization", b"Basic " + base64.b64encode(auth))] if auth else []
+            scope = {
+                "type": "http",
+                "http_version": "1.1",
+                "method": "GET",
+                "path": "/admin",
+                "scheme": "http",
+                "query_string": b"",
+                "headers": headers,
+                "client": ("192.0.2.10", 50000),
+            }
+            messages = []
+
+            async def receive():
+                return {"type": "http.request", "body": b""}
+
+            async def send(message):
+                messages.append(message)
+
+            await app(scope, receive, send)
+            return messages[0]["status"]
+
+        auth = b"test-admin:test-password"
+        with patch.dict("os.environ", {"PERFLENS_ADMIN_ALLOW_HTTP": ""}):
+            restricted = create_app(self.registry, "test-admin", "test-password")
+        with patch.dict("os.environ", {"PERFLENS_ADMIN_ALLOW_HTTP": "1"}):
+            enabled = create_app(self.registry, "test-admin", "test-password")
+
+        self.assertEqual(asyncio.run(get_admin_status(restricted, auth)), 403)
+        self.assertEqual(asyncio.run(get_admin_status(enabled)), 401)
+        self.assertEqual(asyncio.run(get_admin_status(enabled, b"test-admin:wrong")), 401)
+        self.assertEqual(asyncio.run(get_admin_status(enabled, auth)), 200)
 
     def test_registration_duration_and_authenticated_admin_writes(self):
         self.start_server()
