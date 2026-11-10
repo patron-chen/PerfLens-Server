@@ -1,5 +1,6 @@
 """Initialize keys, publish updates, and run the standalone activation server."""
 import argparse
+import logging
 import os
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from .app import Registry, create_app
+from .server_log import file_log_handler
 from .updates import publish_update
 
 
@@ -57,7 +59,9 @@ def main(argv=None):
     serve.add_argument("--distribution-dir", type=Path, help="Watch a release directory for newer versions")
     serve.add_argument("--ssl-certfile")
     serve.add_argument("--ssl-keyfile")
+    serve.add_argument("--log-dir", type=Path, help="Write timestamped, rotating logs to this directory")
     args = parser.parse_args(argv)
+    logger = None
     try:
         if args.command == "init":
             initialize(args.data_dir)
@@ -67,6 +71,9 @@ def main(argv=None):
             version = publish_update(args.data_dir, args.release_dir, key)
             print(f"Published Windows x64 update {version}")
             return
+        if args.log_dir is not None:
+            logging.basicConfig(level=logging.INFO, handlers=[file_log_handler(args.log_dir)], force=True)
+            logger = logging.getLogger("uvicorn.error")
         username = os.environ.get("PERFLENS_ADMIN_USERNAME", "")
         password = os.environ.get("PERFLENS_ADMIN_PASSWORD", "")
         if not username or ":" in username or not password or not (username.isascii() and password.isascii()):
@@ -80,10 +87,18 @@ def main(argv=None):
         if args.distribution_dir is not None:
             args.distribution_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         app = create_app(registry, username, password, distribution_dir=args.distribution_dir)
-        uvicorn.run(app, host=args.host, port=args.port, workers=1,
+        log_config = None if logger is not None else uvicorn.config.LOGGING_CONFIG
+        uvicorn.run(app, host=args.host, port=args.port, workers=1, log_config=log_config,
                     proxy_headers=False, ssl_certfile=args.ssl_certfile, ssl_keyfile=args.ssl_keyfile)
     except (OSError, ValueError, TypeError) as error:
+        if logger is not None:
+            logger.error("%s", error)
         parser.exit(1, f"ERROR: {error}\n")
+    except Exception:
+        if logger is None:
+            raise
+        logger.exception("Activation server failed")
+        parser.exit(1)
 
 
 if __name__ == "__main__":

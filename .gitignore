@@ -14,3 +14,6 @@ __pycache__/
 
 # Local update packages
 /distribution/
+
+# Service logs and archives
+/log/
