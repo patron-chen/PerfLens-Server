@@ -187,14 +187,30 @@ def launch_background(state):
 
 
 def main():
-    parser = argparse.ArgumentParser(prog="deploy.bat", description="Manage the PerfLens activation server")
+    parser = argparse.ArgumentParser(
+        prog="deploy.bat",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        description="""Manage the PerfLens activation server.
+
+Examples:
+  deploy.bat                Start in the background
+  deploy.bat --foreground   Start in the foreground
+  deploy.bat --status       Show status, PID and listening address
+  deploy.bat --stop         Stop the server
+  deploy.bat --restart      Restart in the background""",
+        epilog="On Linux, bash deploy.sh --install-service enables boot startup.",
+    )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--foreground", action="store_true", help="Run in the foreground")
-    mode.add_argument("--status", action="store_true", help="Show the current PID and listening address")
+    mode.add_argument("--status", action="store_true", help="Show status, PID and listening address")
     mode.add_argument("--stop", action="store_true", help="Stop the running server")
     mode.add_argument("--restart", action="store_true", help="Stop the server and start it in the background")
     mode.add_argument("--run-hidden", action="store_true", help=argparse.SUPPRESS)
-    args = parser.parse_args()
+    arguments = sys.argv[1:]
+    if "-h" in arguments or "--help" in arguments:
+        parser.print_help()
+        return 0
+    args = parser.parse_args(arguments)
     if args.run_hidden:
         return run_server()
     credentials = ("PERFLENS_ADMIN_USERNAME", "PERFLENS_ADMIN_PASSWORD")

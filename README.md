@@ -12,6 +12,7 @@ PerfLens 的独立内网激活服务器。客户端以现有 UID 登记，首次
 
 ```bat
 deploy.bat
+deploy.bat --help
 deploy.bat --status
 deploy.bat --stop
 deploy.bat --restart
@@ -25,6 +26,7 @@ deploy.bat --restart
 
 ```bash
 bash deploy.sh
+bash deploy.sh --help
 ```
 
 默认前台运行，按 `Ctrl+C` 停止。
@@ -39,6 +41,7 @@ bash deploy.sh --install-service
 - `bash deploy.sh --stop` 停止 systemd 服务。
 - `bash deploy.sh --restart` 重启 systemd 服务并读取最新配置。
 - `sudo systemctl disable --now perflens-activation.service` 停止并取消自启。
+- `bash deploy.sh --uninstall` 停止服务、取消自启并移除 systemd 服务单元。也可用 `bash deploy.sh uninstall`。部署文件、签名密钥、数据库和日志均保留。
 
 部署脚本创建或复用 `private/activation-venv`，按 `activation_server/requirements.txt` 安装依赖，并初始化 `private/activation` 中的签名密钥。重跑复用原密钥和数据库。systemd 启动时直接使用已部署的环境。
 

@@ -13,8 +13,48 @@ tls_keyfile=''
 # Set to 1 to allow HTTP admin on a trusted LAN.
 export PERFLENS_ADMIN_ALLOW_HTTP=0
 
+show_help()
+{
+    cat <<'EOF'
+Usage: bash deploy.sh [OPTION]
+
+Examples:
+  bash deploy.sh
+  bash deploy.sh --install-service
+  bash deploy.sh --status
+  bash deploy.sh --stop
+  bash deploy.sh --restart
+  bash deploy.sh --uninstall
+
+Options:
+  (no option)              Start in the foreground. Stop with Ctrl+C.
+  --install-service        Install and start the systemd service and enable boot startup.
+  --status                 Show status, PID and listening address.
+  --stop                   Stop the systemd service.
+  --restart                Restart the systemd service.
+  --uninstall, uninstall   Stop the service, disable boot startup and remove its unit.
+  -h, --help               Show this help.
+
+Uninstall preserves the deployment files, signing keys, database and logs.
+EOF
+}
+
+for argument in "$@"; do
+    case $argument in
+        -h|--help)
+            show_help
+            exit 0
+            ;;
+    esac
+done
+if (( $# > 1 )); then
+    printf 'Pass a single option. Run bash deploy.sh --help for usage.\n' >&2
+    exit 2
+fi
+
 mode=${1:-}
 unit=perflens-activation.service
+unit_path=/etc/systemd/system/$unit
 admin=()
 if (( EUID != 0 )); then
     admin=(sudo)
@@ -67,6 +107,24 @@ show_status()
     printf 'Listening: %s\n' "${listeners:-none}"
 }
 
+uninstall_service()
+{
+    if [[ -e $unit_path || -L $unit_path ]]; then
+        "${admin[@]}" systemctl disable --now "$unit"
+        "${admin[@]}" rm -f -- "$unit_path"
+    else
+        # A retry can still need to reload after the unit file was removed.
+        local fragment
+        fragment=$(systemctl show --property=FragmentPath --value "$unit" 2>/dev/null) || fragment=
+        if [[ $fragment != "$unit_path" ]]; then
+            printf '%s is already uninstalled.\n' "$unit"
+            return
+        fi
+    fi
+    "${admin[@]}" systemctl daemon-reload
+    printf 'Uninstalled %s and disabled boot startup.\n' "$unit"
+}
+
 case $mode in
     --status)
         show_status
@@ -75,9 +133,13 @@ case $mode in
     --stop|--restart)
         exec "${admin[@]}" systemctl "${mode#--}" "$unit"
         ;;
+    --uninstall|uninstall)
+        uninstall_service
+        exit
+        ;;
     ''|--install-service|--serve) ;;
     *)
-        printf 'Usage: bash deploy.sh [--install-service|--status|--stop|--restart]\n' >&2
+        printf 'Unknown option %s. Run bash deploy.sh --help for usage.\n' "$mode" >&2
         exit 2
         ;;
 esac
@@ -108,7 +170,7 @@ install_service()
 
     (
         umask 022
-        "${admin[@]}" tee "/etc/systemd/system/$unit" >/dev/null
+        "${admin[@]}" tee "$unit_path" >/dev/null
     ) <<EOF
 [Unit]
 Description=PerfLens Activation Server
