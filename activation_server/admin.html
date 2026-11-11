@@ -267,6 +267,8 @@
     }
 
     .stat-card:hover { border-color: var(--border-strong); background: var(--surface-2); }
+    .stat-card-static { cursor: default; }
+    .stat-card-static:hover { border-color: var(--border); background: var(--surface); }
     .stat-card[aria-pressed="true"] {
       border-color: var(--accent);
       box-shadow: 0 0 0 1px var(--accent);
@@ -729,6 +731,283 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
+    .version-pill-btn {
+      cursor: pointer;
+      transition: border-color 140ms ease, background-color 140ms ease;
+    }
+    .version-pill-btn:hover {
+      border-color: var(--accent);
+      background: var(--surface-hover);
+    }
+
+    .view-tabs {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.28rem;
+      border-radius: var(--radius);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      align-self: flex-start;
+    }
+
+    .view-tab {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.42rem 0.9rem;
+      border-radius: var(--radius-sm);
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      font-weight: 550;
+      cursor: pointer;
+      transition: background-color 140ms ease, color 140ms ease;
+    }
+    .view-tab:hover { color: var(--text); background: var(--surface-hover); }
+    .view-tab[aria-selected="true"] {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .tab-badge {
+      padding: 0.05rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.76rem;
+      font-variant-numeric: tabular-nums;
+      background: var(--surface-2);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .view-tab[aria-selected="true"] .tab-badge {
+      background: rgba(255, 255, 255, 0.22);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    .tab-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+    .tab-panel[hidden] { display: none; }
+
+    .upload-card {
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+    }
+
+    .dropzone {
+      border: 2px dashed var(--border-strong);
+      border-radius: var(--radius);
+      background: var(--surface-2);
+      padding: 1.4rem 1.2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 0.65rem;
+      transition: border-color 150ms ease, background-color 150ms ease;
+    }
+    .dropzone.is-dragover {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .dropzone-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .upload-preview {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      padding: 0.9rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+    }
+    .upload-preview[hidden] { display: none; }
+
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+      gap: 0.6rem 1rem;
+      font-size: 0.86rem;
+    }
+
+    .preview-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .preview-label { font-size: 0.78rem; color: var(--text-muted); }
+    .preview-value { font-weight: 600; word-break: break-all; }
+    .preview-value.mono { font-family: var(--mono); font-size: 0.83rem; }
+
+    .notice-box {
+      padding: 0.55rem 0.8rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      border: 1px solid var(--border);
+    }
+    .notice-box[hidden] { display: none; }
+    .notice-warn {
+      background: var(--warn-bg);
+      color: var(--warn);
+      border-color: transparent;
+    }
+    .notice-error {
+      background: var(--danger-bg);
+      color: var(--danger);
+      border-color: transparent;
+    }
+
+    .upload-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .upload-progress {
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+    .upload-progress[hidden] { display: none; }
+
+    .progress-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.75rem;
+      font-size: 0.85rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .progress-track {
+      height: 0.55rem;
+      border-radius: 999px;
+      background: var(--border);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 120ms linear;
+    }
+
+    .dist-status {
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 0.86rem;
+    }
+
+    .dist-alert {
+      border-radius: var(--radius);
+      border: 1px solid var(--warn);
+      background: var(--warn-bg);
+      padding: 0.95rem 1.1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .dist-alert-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .dist-list {
+      margin: 0;
+      padding-left: 1.25rem;
+      font-size: 0.84rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .badge-accent { color: var(--accent); background: var(--accent-soft); }
+
+    .btn-danger-outline {
+      color: var(--danger);
+      border-color: var(--danger-bg);
+      background: transparent;
+    }
+    .btn-danger-outline:hover:not(:disabled) {
+      background: var(--danger-bg);
+      border-color: var(--danger);
+    }
+
+    .version-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.2rem;
+    }
+
+    .version-code {
+      font-family: var(--mono);
+      font-size: 0.95rem;
+      font-weight: 650;
+    }
+
+    .source-tag {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .artifact-meta {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .artifact-size { font-size: 0.85rem; font-weight: 550; }
+
+    .sha-copy {
+      font-family: var(--mono);
+      font-size: 0.76rem;
+      padding: 0.12rem 0.38rem;
+      border-radius: 0.3rem;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+    .sha-copy:hover { border-color: var(--accent); color: var(--text); }
+
+    .version-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    a.btn { text-decoration: none; }
+
     @media (max-width: 640px) {
       .topbar { align-items: flex-start; }
       .clients-header, .card { padding-left: 1rem; padding-right: 1rem; }
@@ -737,7 +1016,7 @@
   </style>
 </head>
 <body>
-  <main id="app-root" data-server-now="$server_now">
+  <main id="app-root" data-server-now="$server_now" data-existing-versions="$existing_versions_json">
     <header class="topbar">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">
@@ -747,7 +1026,7 @@
           </svg>
         </div>
         <h1>PerfLens 激活管理</h1>
-        <p id="latest-version-pill" class="version-pill">当前发布版本 <strong>$latest_version</strong></p>
+        <button type="button" id="latest-version-pill" class="version-pill version-pill-btn" title="点击切换到版本管理">当前发布版本 <strong>$latest_version</strong></button>
       </div>
       <div class="topbar-actions">
         <span id="sync-hint" class="sync-hint" aria-live="polite"></span>
@@ -772,99 +1051,224 @@
       </div>
     </header>
 
-    <section class="stats-grid" aria-label="客户端概览统计">
-      <button type="button" class="stat-card" data-stat-filter="all" aria-pressed="true">
-        <span class="stat-label"><span>已登记客户端</span><span class="stat-dot accent"></span></span>
-        <strong class="stat-value" id="stat-total">$count</strong>
+    <nav class="view-tabs" role="tablist" aria-label="管理视图切换">
+      <button type="button" id="tab-btn-clients" class="view-tab" role="tab" data-tab="clients" aria-selected="true" aria-controls="tab-clients">
+        <span>客户端管理</span>
+        <span id="tab-clients-count" class="tab-badge">$count</span>
       </button>
-      <button type="button" class="stat-card" data-stat-filter="enabled" aria-pressed="false">
-        <span class="stat-label"><span>允许自动签发</span><span class="stat-dot ok"></span></span>
-        <strong class="stat-value" id="stat-enabled">$enabled_count</strong>
+      <button type="button" id="tab-btn-versions" class="view-tab" role="tab" data-tab="versions" aria-selected="false" aria-controls="tab-versions">
+        <span>版本管理</span>
+        <span id="tab-versions-count" class="tab-badge">$version_count</span>
       </button>
-      <button type="button" class="stat-card" data-stat-filter="disabled" aria-pressed="false">
-        <span class="stat-label"><span>已停发</span><span class="stat-dot off"></span></span>
-        <strong class="stat-value" id="stat-disabled">$disabled_count</strong>
-      </button>
-      <button type="button" class="stat-card" data-stat-filter="active" aria-pressed="false">
-        <span class="stat-label"><span>当前有效授权</span><span class="stat-dot ok"></span></span>
-        <strong class="stat-value" id="stat-active">$active_lease_count</strong>
-      </button>
+    </nav>
+
+    <section id="tab-clients" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-clients">
+      <section class="stats-grid" aria-label="客户端概览统计">
+        <button type="button" class="stat-card" data-stat-filter="all" aria-pressed="true">
+          <span class="stat-label"><span>已登记客户端</span><span class="stat-dot accent"></span></span>
+          <strong class="stat-value" id="stat-total">$count</strong>
+        </button>
+        <button type="button" class="stat-card" data-stat-filter="enabled" aria-pressed="false">
+          <span class="stat-label"><span>允许自动签发</span><span class="stat-dot ok"></span></span>
+          <strong class="stat-value" id="stat-enabled">$enabled_count</strong>
+        </button>
+        <button type="button" class="stat-card" data-stat-filter="disabled" aria-pressed="false">
+          <span class="stat-label"><span>已停发</span><span class="stat-dot off"></span></span>
+          <strong class="stat-value" id="stat-disabled">$disabled_count</strong>
+        </button>
+        <button type="button" class="stat-card" data-stat-filter="active" aria-pressed="false">
+          <span class="stat-label"><span>当前有效授权</span><span class="stat-dot ok"></span></span>
+          <strong class="stat-value" id="stat-active">$active_lease_count</strong>
+        </button>
+      </section>
+
+      <section class="card policy" aria-labelledby="policy">
+        <div class="policy-head">
+          <h2 id="policy">签发策略</h2>
+          <p class="muted-note">新 UID 自动登记并签发。调整有效期或停发对后续签发请求生效，已领到的授权在到期前有效。</p>
+        </div>
+        <form id="policy-form" class="policy-form" method="post" action="/admin/settings" data-saved-duration="$duration">
+          <input type="hidden" name="csrf" value="$csrf">
+          <div class="policy-row">
+            <label class="policy-field" for="duration-input">
+              <span>有效期（分钟）</span>
+              <input id="duration-input" class="input" type="number" name="duration_minutes" min="1" step="1" value="$duration" required>
+            </label>
+            <span id="duration-preview" class="duration-preview" aria-live="polite"></span>
+            <span id="policy-dirty" class="dirty-pill" hidden>未保存修改</span>
+            <button id="policy-submit" type="submit" class="btn btn-primary">保存有效期</button>
+          </div>
+          <div class="preset-row" aria-label="常用有效期预设">
+            <span class="preset-label">常用预设：</span>
+            <button type="button" class="chip preset-btn" data-minutes="60">1 小时 (60)</button>
+            <button type="button" class="chip preset-btn" data-minutes="1440">1 天 (1440)</button>
+            <button type="button" class="chip preset-btn" data-minutes="10080">7 天 (10080)</button>
+            <button type="button" class="chip preset-btn" data-minutes="43200">30 天 (43200)</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card clients-card" aria-labelledby="clients">
+        <div class="clients-header">
+          <div class="clients-title-row">
+            <h2 id="clients">已登记客户端（<span id="clients-count">$count</span>）</h2>
+            <p class="muted-note">计算机名、本机 IP 和客户端版本来自最近一次成功上报。点击表头可排序，点击 UID 可展开完整值。</p>
+          </div>
+          <div class="toolbar">
+            <div class="search-box">
+              <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+              </svg>
+              <input id="client-search" class="input" type="search" placeholder="搜索 UID / 计算机名 / IP / 版本… (按 / 聚焦)" autocomplete="off">
+              <button type="button" id="search-clear" class="search-clear" title="清空搜索" aria-label="清空搜索" hidden>×</button>
+            </div>
+            <div class="filter-group" role="group" aria-label="按状态筛选">
+              <button type="button" class="filter-pill" data-filter="all" aria-pressed="true">全部 (<span data-count-for="all">$count</span>)</button>
+              <button type="button" class="filter-pill" data-filter="enabled" aria-pressed="false">启用 (<span data-count-for="enabled">$enabled_count</span>)</button>
+              <button type="button" class="filter-pill" data-filter="disabled" aria-pressed="false">停发 (<span data-count-for="disabled">$disabled_count</span>)</button>
+              <button type="button" class="filter-pill" data-filter="active" aria-pressed="false">授权有效 (<span data-count-for="active">$active_lease_count</span>)</button>
+              <button type="button" class="filter-pill" data-filter="expired" aria-pressed="false">已过期 (<span data-count-for="expired">0</span>)</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col"><button type="button" class="sort-btn" data-sort="uid"><span>UID</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort="computer"><span>计算机名</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort="ip"><span>本机 IP</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort="version"><span>客户端版本</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort="firstSeen"><span>首次登记</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort="lastSeen" data-active="true"><span>最近请求</span><span class="sort-arrow" aria-hidden="true">↓</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort="expiresAt"><span>最近签发到期</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort="autoIssue"><span>自动签发</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col" class="th-plain">操作</th>
+              </tr>
+            </thead>
+            <tbody id="clients-tbody">$rows</tbody>
+            <tfoot><tr><td colspan="9" class="empty-cell">等待首个客户端注册。</td></tr></tfoot>
+          </table>
+        </div>
+
+        <div id="filter-empty" class="filter-empty" hidden>
+          <p id="filter-empty-text">没有符合当前搜索或筛选条件的客户端。</p>
+          <button type="button" id="clear-filters-btn" class="btn btn-sm">重置搜索与筛选</button>
+        </div>
+      </section>
     </section>
 
-    <section class="card policy" aria-labelledby="policy">
-      <div class="policy-head">
-        <h2 id="policy">签发策略</h2>
-        <p class="muted-note">新 UID 自动登记并签发。调整有效期或停发对后续签发请求生效，已领到的授权在到期前有效。</p>
-      </div>
-      <form id="policy-form" class="policy-form" method="post" action="/admin/settings" data-saved-duration="$duration">
-        <input type="hidden" name="csrf" value="$csrf">
-        <div class="policy-row">
-          <label class="policy-field" for="duration-input">
-            <span>有效期（分钟）</span>
-            <input id="duration-input" class="input" type="number" name="duration_minutes" min="1" step="1" value="$duration" required>
-          </label>
-          <span id="duration-preview" class="duration-preview" aria-live="polite"></span>
-          <span id="policy-dirty" class="dirty-pill" hidden>未保存修改</span>
-          <button id="policy-submit" type="submit" class="btn btn-primary">保存有效期</button>
+    <section id="tab-versions" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-versions" hidden>
+      <section class="stats-grid" aria-label="版本概览统计">
+        <div class="stat-card stat-card-static">
+          <span class="stat-label"><span>已发布版本</span><span class="stat-dot accent"></span></span>
+          <strong class="stat-value" id="stat-ver-total">$version_count</strong>
         </div>
-        <div class="preset-row" aria-label="常用有效期预设">
-          <span class="preset-label">常用预设：</span>
-          <button type="button" class="chip preset-btn" data-minutes="60">1 小时 (60)</button>
-          <button type="button" class="chip preset-btn" data-minutes="1440">1 天 (1440)</button>
-          <button type="button" class="chip preset-btn" data-minutes="10080">7 天 (10080)</button>
-          <button type="button" class="chip preset-btn" data-minutes="43200">30 天 (43200)</button>
+        <div class="stat-card stat-card-static">
+          <span class="stat-label"><span>已启用推送</span><span class="stat-dot ok"></span></span>
+          <strong class="stat-value" id="stat-ver-enabled">$enabled_version_count</strong>
         </div>
-      </form>
-    </section>
+        <div class="stat-card stat-card-static">
+          <span class="stat-label"><span>已停用</span><span class="stat-dot off"></span></span>
+          <strong class="stat-value" id="stat-ver-disabled">$disabled_version_count</strong>
+        </div>
+      </section>
 
-    <section class="card clients-card" aria-labelledby="clients">
-      <div class="clients-header">
-        <div class="clients-title-row">
-          <h2 id="clients">已登记客户端（<span id="clients-count">$count</span>）</h2>
-          <p class="muted-note">计算机名、本机 IP 和客户端版本来自最近一次成功上报。点击表头可排序，点击 UID 可展开完整值。</p>
+      <section id="upload-card" class="card upload-card" aria-labelledby="upload-title">
+        <div class="policy-head">
+          <h2 id="upload-title">上传并发布新版本</h2>
+          <p class="muted-note">直接选择打包输出目录（或拖入 <code>manifest.json</code>、Setup EXE 与 Unpacked ZIP），文件直写 <code>updates</code>，不留冗余副本。</p>
         </div>
-        <div class="toolbar">
-          <div class="search-box">
-            <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-            </svg>
-            <input id="client-search" class="input" type="search" placeholder="搜索 UID / 计算机名 / IP / 版本… (按 / 聚焦)" autocomplete="off">
-            <button type="button" id="search-clear" class="search-clear" title="清空搜索" aria-label="清空搜索" hidden>×</button>
+
+        <div id="upload-dropzone" class="dropzone">
+          <p>将打包输出文件夹（如 <code>release/package-x.y.z-...</code>）或安装包文件拖放到此处</p>
+          <div class="dropzone-actions">
+            <button type="button" id="pick-dir-btn" class="btn btn-sm btn-primary">选择打包目录</button>
+            <button type="button" id="pick-files-btn" class="btn btn-sm">选择多个文件</button>
           </div>
-          <div class="filter-group" role="group" aria-label="按状态筛选">
-            <button type="button" class="filter-pill" data-filter="all" aria-pressed="true">全部 (<span data-count-for="all">$count</span>)</button>
-            <button type="button" class="filter-pill" data-filter="enabled" aria-pressed="false">启用 (<span data-count-for="enabled">$enabled_count</span>)</button>
-            <button type="button" class="filter-pill" data-filter="disabled" aria-pressed="false">停发 (<span data-count-for="disabled">$disabled_count</span>)</button>
-            <button type="button" class="filter-pill" data-filter="active" aria-pressed="false">授权有效 (<span data-count-for="active">$active_lease_count</span>)</button>
-            <button type="button" class="filter-pill" data-filter="expired" aria-pressed="false">已过期 (<span data-count-for="expired">0</span>)</button>
+          <p class="muted-note">自动读取 <code>manifest.json</code> 校验公钥指纹与 SHA-256，并自动过滤多余的 Portable / CLI 等文件。</p>
+          <input id="upload-dir-input" type="file" webkitdirectory multiple hidden>
+          <input id="upload-files-input" type="file" multiple hidden>
+        </div>
+
+        <div id="upload-preview" class="upload-preview" hidden>
+          <div class="preview-grid">
+            <div class="preview-item">
+              <span class="preview-label">待发布版本号</span>
+              <span id="preview-version" class="preview-value mono">—</span>
+            </div>
+            <div class="preview-item">
+              <span class="preview-label">打包绑定服务器地址</span>
+              <span id="preview-origin" class="preview-value mono">—</span>
+            </div>
+            <div class="preview-item">
+              <span class="preview-label">安装版（Setup EXE）</span>
+              <span id="preview-installer" class="preview-value">—</span>
+            </div>
+            <div class="preview-item">
+              <span class="preview-label">解包版（Unpacked ZIP）</span>
+              <span id="preview-unpacked" class="preview-value">—</span>
+            </div>
+          </div>
+
+          <div id="upload-warn" class="notice-box notice-warn" hidden></div>
+          <div id="upload-error" class="notice-box notice-error" hidden></div>
+
+          <div class="upload-controls">
+            <label class="checkbox-label">
+              <input id="upload-enabled" type="checkbox" checked>
+              <span>上传后立即启用（推送给客户端）</span>
+            </label>
+            <div class="dropzone-actions">
+              <button type="button" id="upload-clear-btn" class="btn btn-sm">清空选择</button>
+              <button type="button" id="upload-start-btn" class="btn btn-primary" disabled>开始上传并发布</button>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col"><button type="button" class="sort-btn" data-sort="uid"><span>UID</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort="computer"><span>计算机名</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort="ip"><span>本机 IP</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort="version"><span>客户端版本</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort="firstSeen"><span>首次登记</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort="lastSeen" data-active="true"><span>最近请求</span><span class="sort-arrow" aria-hidden="true">↓</span></button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort="expiresAt"><span>最近签发到期</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th scope="col"><button type="button" class="sort-btn" data-sort="autoIssue"><span>自动签发</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
-              <th scope="col" class="th-plain">操作</th>
-            </tr>
-          </thead>
-          <tbody id="clients-tbody">$rows</tbody>
-          <tfoot><tr><td colspan="9" class="empty-cell">等待首个客户端注册。</td></tr></tfoot>
-        </table>
-      </div>
+        <div id="upload-progress" class="upload-progress" hidden>
+          <div class="progress-head">
+            <span id="progress-stage">准备上传…</span>
+            <span id="progress-stats">0%</span>
+          </div>
+          <div class="progress-track">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+          <div class="upload-controls">
+            <span id="progress-speed" class="muted-note"></span>
+            <button type="button" id="upload-cancel-btn" class="btn btn-sm btn-stop">取消上传</button>
+          </div>
+        </div>
+      </section>
 
-      <div id="filter-empty" class="filter-empty" hidden>
-        <p id="filter-empty-text">没有符合当前搜索或筛选条件的客户端。</p>
-        <button type="button" id="clear-filters-btn" class="btn btn-sm">重置搜索与筛选</button>
-      </div>
+      <div id="distribution-panel">$distribution_html</div>
+
+      <section class="card clients-card" aria-labelledby="versions-heading">
+        <div class="clients-header">
+          <div class="clients-title-row">
+            <h2 id="versions-heading">服务器已发布版本（<span id="versions-count">$version_count</span>）</h2>
+            <p class="muted-note"><code>/latest</code> 自动推送版本号最高的已启用版本；停用后公共接口一并屏蔽，管理页仍可鉴权下载。</p>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col" class="th-plain">版本与来源</th>
+                <th scope="col" class="th-plain">状态</th>
+                <th scope="col" class="th-plain">发布时间</th>
+                <th scope="col" class="th-plain">安装版（Setup）</th>
+                <th scope="col" class="th-plain">解包版（Unpacked）</th>
+                <th scope="col" class="th-plain">客户端分布</th>
+                <th scope="col" class="th-plain">操作</th>
+              </tr>
+            </thead>
+            <tbody id="versions-tbody">$version_rows</tbody>
+            <tfoot><tr><td colspan="7" class="empty-cell">暂未发布任何在线更新版本。</td></tr></tfoot>
+          </table>
+        </div>
+      </section>
     </section>
   </main>
 
@@ -900,16 +1304,55 @@
       var syncHint = document.getElementById("sync-hint");
       var toastContainer = document.getElementById("toast-container");
 
+      var latestVersionPill = document.getElementById("latest-version-pill");
+      var tabBtns = document.querySelectorAll(".view-tab");
+      var tabPanels = {
+        clients: document.getElementById("tab-clients"),
+        versions: document.getElementById("tab-versions")
+      };
+      var versionsTbody = document.getElementById("versions-tbody");
+      var distributionPanel = document.getElementById("distribution-panel");
+
+      var dropzone = document.getElementById("upload-dropzone");
+      var pickDirBtn = document.getElementById("pick-dir-btn");
+      var pickFilesBtn = document.getElementById("pick-files-btn");
+      var uploadDirInput = document.getElementById("upload-dir-input");
+      var uploadFilesInput = document.getElementById("upload-files-input");
+      var uploadPreview = document.getElementById("upload-preview");
+      var previewVersion = document.getElementById("preview-version");
+      var previewOrigin = document.getElementById("preview-origin");
+      var previewInstaller = document.getElementById("preview-installer");
+      var previewUnpacked = document.getElementById("preview-unpacked");
+      var uploadWarn = document.getElementById("upload-warn");
+      var uploadError = document.getElementById("upload-error");
+      var uploadEnabledCheckbox = document.getElementById("upload-enabled");
+      var uploadClearBtn = document.getElementById("upload-clear-btn");
+      var uploadStartBtn = document.getElementById("upload-start-btn");
+      var uploadProgress = document.getElementById("upload-progress");
+      var progressStage = document.getElementById("progress-stage");
+      var progressStats = document.getElementById("progress-stats");
+      var progressFill = document.getElementById("progress-fill");
+      var progressSpeed = document.getElementById("progress-speed");
+      var uploadCancelBtn = document.getElementById("upload-cancel-btn");
+
       var state = {
         serverNow: parseInt(appRoot.getAttribute("data-server-now"), 10) || Math.floor(Date.now() / 1000),
         loadedAtMs: Date.now(),
         tzMode: storageGet("perflens-admin-tz", "local") === "utc" ? "utc" : "local",
+        activeTab: (window.location.hash === "#versions" || storageGet("perflens-admin-tab", "clients") === "versions") ? "versions" : "clients",
         search: "",
         filter: "all",
         sortKey: "lastSeen",
         sortDir: "desc",
         expandedUids: new Set(),
         refreshing: false
+      };
+
+      var uploadState = {
+        selection: null,
+        uploading: false,
+        sessionId: null,
+        abortController: null
       };
 
       function storageGet(key, fallback) {
@@ -1360,7 +1803,9 @@
         var nextTbody = doc.getElementById("clients-tbody");
         var nextPolicyForm = doc.getElementById("policy-form");
         var nextVersion = doc.querySelector("#latest-version-pill strong");
-        if (!nextRoot || !nextTbody || !nextPolicyForm) {
+        var nextVersionsTbody = doc.getElementById("versions-tbody");
+        var nextDistributionPanel = doc.getElementById("distribution-panel");
+        if (!nextRoot || !nextTbody || !nextPolicyForm || !nextVersionsTbody || !nextDistributionPanel) {
           throw new Error("页面响应格式异常");
         }
 
@@ -1368,6 +1813,10 @@
         if (Number.isFinite(nextNow)) {
           state.serverNow = nextNow;
           state.loadedAtMs = Date.now();
+        }
+        var nextExisting = nextRoot.getAttribute("data-existing-versions");
+        if (nextExisting !== null) {
+          appRoot.setAttribute("data-existing-versions", nextExisting);
         }
 
         var nextCsrf = nextPolicyForm.querySelector('input[name="csrf"]');
@@ -1391,9 +1840,30 @@
           currVersion.textContent = nextVersion.textContent;
         }
 
+        var syncTextIds = [
+          "tab-clients-count",
+          "tab-versions-count",
+          "stat-ver-total",
+          "stat-ver-enabled",
+          "stat-ver-disabled",
+          "versions-count"
+        ];
+        for (var idx = 0; idx < syncTextIds.length; idx++) {
+          var id = syncTextIds[idx];
+          var srcNode = doc.getElementById(id);
+          var dstNode = document.getElementById(id);
+          if (srcNode && dstNode) {
+            dstNode.textContent = srcNode.textContent;
+          }
+        }
+
         tbody.innerHTML = nextTbody.innerHTML;
+        versionsTbody.innerHTML = nextVersionsTbody.innerHTML;
+        distributionPanel.innerHTML = nextDistributionPanel.innerHTML;
         enhanceRows();
+        enhanceVersionRows();
         applyView();
+        revalidateSelection();
         syncHint.textContent = "同步于 " + formatAbsolute(Math.floor(Date.now() / 1000), "local").slice(11);
       }
 
@@ -1460,13 +1930,13 @@
         });
       }
 
-      function refreshAdmin() {
+      function refreshAdmin(silent) {
         if (state.refreshing) return;
         state.refreshing = true;
         refreshBtn.disabled = true;
         refreshIcon.classList.add("spin");
 
-        fetch("/admin", {
+        return fetch("/admin", {
           method: "GET",
           credentials: "same-origin",
           cache: "no-store"
@@ -1477,13 +1947,418 @@
           return res.text();
         }).then(function (html) {
           syncFromHtml(html, { forceDuration: false });
-          showToast("已刷新最新状态", "ok");
+          if (!silent) showToast("已刷新最新状态", "ok");
         }).catch(function (err) {
           showToast(err && err.message ? err.message : "刷新失败", "error");
         }).finally(function () {
           state.refreshing = false;
           refreshBtn.disabled = false;
           refreshIcon.classList.remove("spin");
+        });
+      }
+
+      function currentCsrf() {
+        var input = policyForm.querySelector('input[name="csrf"]');
+        return input ? input.value : "";
+      }
+
+      function getExistingVersions() {
+        try {
+          var parsed = JSON.parse(appRoot.getAttribute("data-existing-versions") || "[]");
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function formatBytesClient(bytes) {
+        var units = ["B", "KiB", "MiB", "GiB"];
+        var val = Math.max(0, Number(bytes) || 0);
+        for (var i = 0; i < units.length - 1; i++) {
+          if (val < 1024) {
+            return (i === 0 ? Math.round(val) : val.toFixed(1)) + " " + units[i];
+          }
+          val /= 1024;
+        }
+        return val.toFixed(2) + " GiB";
+      }
+
+      function setActiveTab(tab) {
+        var nextTab = tab === "versions" ? "versions" : "clients";
+        state.activeTab = nextTab;
+        storageSet("perflens-admin-tab", nextTab);
+        for (var i = 0; i < tabBtns.length; i++) {
+          var btn = tabBtns[i];
+          btn.setAttribute("aria-selected", String(btn.getAttribute("data-tab") === nextTab));
+        }
+        tabPanels.clients.hidden = nextTab !== "clients";
+        tabPanels.versions.hidden = nextTab !== "versions";
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState(null, "", "#" + nextTab);
+        }
+      }
+
+      function enhanceVersionRows() {
+        var now = currentServerNow();
+        var rows = versionsTbody.querySelectorAll("tr");
+        for (var i = 0; i < rows.length; i++) {
+          var cells = rows[i].querySelectorAll(".ts-cell");
+          for (var j = 0; j < cells.length; j++) {
+            renderTimestampCell(cells[j], now);
+          }
+        }
+      }
+
+      function clearUploadSelection() {
+        if (uploadState.uploading) return;
+        uploadState.selection = null;
+        uploadDirInput.value = "";
+        uploadFilesInput.value = "";
+        uploadPreview.hidden = true;
+        uploadWarn.hidden = true;
+        uploadError.hidden = true;
+        uploadStartBtn.disabled = true;
+      }
+
+      function revalidateSelection() {
+        var sel = uploadState.selection;
+        if (!sel) return;
+        var errorMsgs = sel.baseErrors.slice();
+        var warnMsgs = sel.baseWarns.slice();
+        var existing = getExistingVersions();
+        if (sel.version && existing.indexOf(sel.version) !== -1) {
+          errorMsgs.push("服务器已存在版本 " + sel.version + "（禁止直接覆盖，如需重传请先在下方版本列表删除）");
+        }
+        if (warnMsgs.length > 0) {
+          uploadWarn.textContent = warnMsgs.join("；");
+          uploadWarn.hidden = false;
+        } else {
+          uploadWarn.hidden = true;
+        }
+        if (errorMsgs.length > 0) {
+          uploadError.textContent = errorMsgs.join("；");
+          uploadError.hidden = false;
+          uploadStartBtn.disabled = true;
+        } else {
+          uploadError.hidden = true;
+          uploadStartBtn.disabled = uploadState.uploading;
+        }
+      }
+
+      function pickShallowestFile(files, targetName) {
+        var best = null;
+        var bestDepth = Infinity;
+        for (var i = 0; i < files.length; i++) {
+          var f = files[i];
+          if (f.name !== targetName) continue;
+          var rel = f.webkitRelativePath || f.name;
+          var depth = rel.split("/").length;
+          if (depth < bestDepth) {
+            best = f;
+            bestDepth = depth;
+          }
+        }
+        return best;
+      }
+
+      function inspectSelectedFiles(fileList) {
+        if (uploadState.uploading) {
+          showToast("当前正在上传，请先等待完成或取消", "error");
+          return;
+        }
+        var files = Array.prototype.slice.call(fileList || []);
+        if (!files.length) return;
+
+        var manifestFile = pickShallowestFile(files, "manifest.json");
+        if (!manifestFile) {
+          uploadState.selection = {
+            version: "",
+            baseErrors: ["未在所选文件中找到 manifest.json"],
+            baseWarns: []
+          };
+          previewVersion.textContent = "—";
+          previewOrigin.textContent = "—";
+          previewInstaller.textContent = "未识别";
+          previewUnpacked.textContent = "未识别";
+          uploadPreview.hidden = false;
+          revalidateSelection();
+          return;
+        }
+
+        manifestFile.text().then(function (text) {
+          var manifest;
+          try {
+            manifest = JSON.parse(text);
+          } catch (e) {
+            throw new Error("manifest.json 不是有效的 JSON 文件");
+          }
+          if (!manifest || typeof manifest !== "object") {
+            throw new Error("manifest.json 内容格式无效");
+          }
+          var version = typeof manifest.version === "string" ? manifest.version : "";
+          var origin = typeof manifest.activation_server === "string" ? manifest.activation_server : "";
+          var entries = Array.isArray(manifest.artifacts) ? manifest.artifacts : [];
+          var expectedInstaller = version ? ("PerfLens-Setup-" + version + "-x64.exe") : "";
+          var expectedUnpacked = version ? ("PerfLens-Unpacked-" + version + "-win-x64.zip") : "";
+
+          var baseErrors = [];
+          var baseWarns = [];
+          if (!/^(?:0|[1-9][0-9]{0,8})(?:\.(?:0|[1-9][0-9]{0,8})){2}$$/.test(version)) {
+            baseErrors.push("manifest.json 中的版本号无效（需要稳定版 X.Y.Z）");
+          }
+          if (!origin) {
+            baseErrors.push("manifest.json 缺少 activation_server");
+          } else if (origin !== window.location.origin) {
+            baseWarns.push("打包配置的服务地址为 " + origin + "，与当前页面地址 (" + window.location.origin + ") 不同，请确认客户端能访问该地址");
+          }
+
+          var installerMeta = entries.find(function (item) { return item && item.file === expectedInstaller; });
+          var unpackedMeta = entries.find(function (item) { return item && item.file === expectedUnpacked; });
+          var installerFile = expectedInstaller ? pickShallowestFile(files, expectedInstaller) : null;
+          var unpackedFile = expectedUnpacked ? pickShallowestFile(files, expectedUnpacked) : null;
+
+          if (!installerMeta || !installerFile) {
+            baseErrors.push("缺少安装版文件 " + (expectedInstaller || "Setup EXE"));
+          } else if (installerFile.size !== installerMeta.bytes) {
+            baseErrors.push(expectedInstaller + " 文件大小与 manifest.json 不一致");
+          }
+
+          if (!unpackedMeta || !unpackedFile) {
+            baseErrors.push("缺少解包版文件 " + (expectedUnpacked || "Unpacked ZIP"));
+          } else if (unpackedFile.size !== unpackedMeta.bytes) {
+            baseErrors.push(expectedUnpacked + " 文件大小与 manifest.json 不一致");
+          }
+
+          var ignoredCount = Math.max(0, files.length - 1 - (installerFile ? 1 : 0) - (unpackedFile ? 1 : 0));
+          if (ignoredCount > 0) {
+            baseWarns.push("已自动过滤 " + ignoredCount + " 个无关文件（仅上传更新必需的 2 个安装包和清单）");
+          }
+
+          previewVersion.textContent = version || "无效";
+          previewOrigin.textContent = origin || "未配置";
+          previewInstaller.textContent = installerFile
+            ? (installerFile.name + " (" + formatBytesClient(installerFile.size) + ")")
+            : ("缺失: " + (expectedInstaller || "—"));
+          previewUnpacked.textContent = unpackedFile
+            ? (unpackedFile.name + " (" + formatBytesClient(unpackedFile.size) + ")")
+            : ("缺失: " + (expectedUnpacked || "—"));
+
+          uploadState.selection = {
+            version: version,
+            manifest: manifest,
+            installer: installerFile,
+            unpacked: unpackedFile,
+            baseErrors: baseErrors,
+            baseWarns: baseWarns
+          };
+          uploadPreview.hidden = false;
+          revalidateSelection();
+        }).catch(function (err) {
+          uploadState.selection = {
+            version: "",
+            baseErrors: [err && err.message ? err.message : "无法读取 manifest.json"],
+            baseWarns: []
+          };
+          previewVersion.textContent = "—";
+          previewOrigin.textContent = "—";
+          previewInstaller.textContent = "—";
+          previewUnpacked.textContent = "—";
+          uploadPreview.hidden = false;
+          revalidateSelection();
+        });
+      }
+
+      function readEntryShallow(entry, depth) {
+        if (entry.isFile) {
+          return new Promise(function (resolve, reject) {
+            entry.file(function (file) { resolve([file]); }, reject);
+          });
+        }
+        // Only traverse 1 directory level so dragging a release folder skips nested unpacked resource trees.
+        if (entry.isDirectory && depth < 1) {
+          var reader = entry.createReader();
+          var collected = [];
+          var readAll = function () {
+            return new Promise(function (resolve, reject) {
+              reader.readEntries(function (entries) {
+                if (!entries.length) {
+                  resolve(collected);
+                  return;
+                }
+                Promise.all(entries.map(function (child) {
+                  return readEntryShallow(child, depth + 1);
+                })).then(function (groups) {
+                  for (var i = 0; i < groups.length; i++) {
+                    collected = collected.concat(groups[i]);
+                  }
+                  resolve(readAll());
+                }, reject);
+              }, reject);
+            });
+          };
+          return readAll();
+        }
+        return Promise.resolve([]);
+      }
+
+      function collectDroppedFiles(dataTransfer) {
+        var items = dataTransfer.items;
+        if (items && items.length && items[0].webkitGetAsEntry) {
+          var tasks = [];
+          for (var i = 0; i < items.length; i++) {
+            var entry = items[i].webkitGetAsEntry();
+            if (entry) tasks.push(readEntryShallow(entry, 0));
+          }
+          return Promise.all(tasks).then(function (groups) {
+            var merged = [];
+            for (var j = 0; j < groups.length; j++) {
+              merged = merged.concat(groups[j]);
+            }
+            return merged;
+          });
+        }
+        return Promise.resolve(Array.prototype.slice.call(dataTransfer.files || []));
+      }
+
+      function uploadArtifactChunks(sessionId, kind, file, chunkBytes, signal, onChunkDone) {
+        var offset = 0;
+        function sendNext() {
+          if (offset >= file.size) {
+            return Promise.resolve();
+          }
+          var end = Math.min(file.size, offset + chunkBytes);
+          var slice = file.slice(offset, end);
+          return fetch("/admin/updates/upload/" + encodeURIComponent(sessionId) + "/" + encodeURIComponent(kind), {
+            method: "POST",
+            body: slice,
+            headers: {
+              "Content-Type": "application/octet-stream",
+              "X-CSRF-Token": currentCsrf(),
+              "X-Chunk-Offset": String(offset)
+            },
+            credentials: "same-origin",
+            signal: signal
+          }).then(function (res) {
+            if (!res.ok) {
+              return extractErrorDetail(res, "上传分片失败（HTTP " + res.status + "）").then(function (detail) {
+                throw new Error(detail);
+              });
+            }
+            return res.json();
+          }).then(function () {
+            var sentNow = end - offset;
+            offset = end;
+            onChunkDone(sentNow);
+            return sendNext();
+          });
+        }
+        return sendNext();
+      }
+
+      function setUploadBusy(busy) {
+        uploadState.uploading = busy;
+        pickDirBtn.disabled = busy;
+        pickFilesBtn.disabled = busy;
+        uploadClearBtn.disabled = busy;
+        uploadEnabledCheckbox.disabled = busy;
+        uploadStartBtn.disabled = busy || !uploadState.selection || !uploadError.hidden;
+        uploadProgress.hidden = !busy;
+      }
+
+      function startUpload() {
+        var sel = uploadState.selection;
+        if (!sel || uploadState.uploading || !sel.installer || !sel.unpacked) return;
+        var controller = new AbortController();
+        uploadState.abortController = controller;
+        uploadState.sessionId = null;
+        setUploadBusy(true);
+
+        var totalBytes = sel.installer.size + sel.unpacked.size;
+        var uploadedBytes = 0;
+        var startedMs = performance.now();
+
+        function updateProgressUI(stageText) {
+          var pct = totalBytes > 0 ? Math.min(100, Math.round((uploadedBytes * 1000) / totalBytes) / 10) : 0;
+          var elapsedSec = Math.max(0.1, (performance.now() - startedMs) / 1000);
+          var rate = formatBytesClient(uploadedBytes / elapsedSec) + "/s";
+          progressStage.textContent = stageText;
+          progressStats.textContent = pct.toFixed(1) + "% (" + formatBytesClient(uploadedBytes) + " / " + formatBytesClient(totalBytes) + ")";
+          progressFill.style.width = pct + "%";
+          progressSpeed.textContent = "平均速度：" + rate;
+        }
+
+        updateProgressUI("正在向服务器校验清单…");
+
+        fetch("/admin/updates/upload/init", {
+          method: "POST",
+          body: JSON.stringify({ manifest: sel.manifest, enabled: uploadEnabledCheckbox.checked }),
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRF-Token": currentCsrf()
+          },
+          credentials: "same-origin",
+          signal: controller.signal
+        }).then(function (res) {
+          if (!res.ok) {
+            return extractErrorDetail(res, "初始化上传失败（HTTP " + res.status + "）").then(function (detail) {
+              throw new Error(detail);
+            });
+          }
+          return res.json();
+        }).then(function (session) {
+          uploadState.sessionId = session.session_id;
+          var chunkBytes = session.chunk_bytes || (8 * 1024 * 1024);
+          updateProgressUI("正在上传安装版：" + sel.installer.name);
+          return uploadArtifactChunks(session.session_id, "installer", sel.installer, chunkBytes, controller.signal, function (delta) {
+            uploadedBytes += delta;
+            updateProgressUI("正在上传安装版：" + sel.installer.name);
+          }).then(function () {
+            updateProgressUI("正在上传解包版：" + sel.unpacked.name);
+            return uploadArtifactChunks(session.session_id, "unpacked", sel.unpacked, chunkBytes, controller.signal, function (delta) {
+              uploadedBytes += delta;
+              updateProgressUI("正在上传解包版：" + sel.unpacked.name);
+            });
+          }).then(function () {
+            updateProgressUI("正在校验 SHA-256 并签发更新清单…");
+            progressSpeed.textContent = "校验签名中，请稍候…";
+            return fetch("/admin/updates/upload/" + encodeURIComponent(session.session_id) + "/complete", {
+              method: "POST",
+              headers: { "X-CSRF-Token": currentCsrf() },
+              credentials: "same-origin",
+              signal: controller.signal
+            });
+          });
+        }).then(function (res) {
+          if (!res.ok) {
+            return extractErrorDetail(res, "签发失败（HTTP " + res.status + "）").then(function (detail) {
+              throw new Error(detail);
+            });
+          }
+          return res.json();
+        }).then(function (result) {
+          uploadState.sessionId = null;
+          setUploadBusy(false);
+          clearUploadSelection();
+          showToast("版本 " + result.version + " 上传并发布成功", "ok");
+          return refreshAdmin(true);
+        }).catch(function (err) {
+          var sid = uploadState.sessionId;
+          uploadState.sessionId = null;
+          if (sid) {
+            fetch("/admin/updates/upload/" + encodeURIComponent(sid), {
+              method: "DELETE",
+              headers: { "X-CSRF-Token": currentCsrf() },
+              credentials: "same-origin"
+            }).catch(function () {});
+          }
+          setUploadBusy(false);
+          if (err && err.name === "AbortError") {
+            showToast("已取消上传", "ok");
+          } else {
+            showToast(err && err.message ? err.message : "上传失败", "error");
+          }
+        }).finally(function () {
+          uploadState.abortController = null;
         });
       }
 
@@ -1633,6 +2508,7 @@
         storageSet("perflens-admin-tz", state.tzMode);
         updateTzUI();
         enhanceRows();
+        enhanceVersionRows();
       });
 
       themeToggle.addEventListener("click", function () {
@@ -1642,27 +2518,153 @@
         updateThemeUI();
       });
 
-      refreshBtn.addEventListener("click", refreshAdmin);
+      refreshBtn.addEventListener("click", function () {
+        refreshAdmin(false);
+      });
+
+      for (var tb = 0; tb < tabBtns.length; tb++) {
+        tabBtns[tb].addEventListener("click", function () {
+          setActiveTab(this.getAttribute("data-tab"));
+        });
+      }
+
+      latestVersionPill.addEventListener("click", function () {
+        setActiveTab("versions");
+      });
+
+      pickDirBtn.addEventListener("click", function () {
+        uploadDirInput.click();
+      });
+      pickFilesBtn.addEventListener("click", function () {
+        uploadFilesInput.click();
+      });
+      uploadDirInput.addEventListener("change", function () {
+        inspectSelectedFiles(this.files);
+      });
+      uploadFilesInput.addEventListener("change", function () {
+        inspectSelectedFiles(this.files);
+      });
+      uploadClearBtn.addEventListener("click", clearUploadSelection);
+      uploadStartBtn.addEventListener("click", startUpload);
+      uploadCancelBtn.addEventListener("click", function () {
+        if (uploadState.abortController) {
+          uploadState.abortController.abort();
+        }
+      });
+
+      dropzone.addEventListener("dragover", function (e) {
+        e.preventDefault();
+        dropzone.classList.add("is-dragover");
+      });
+      dropzone.addEventListener("dragleave", function (e) {
+        if (!dropzone.contains(e.relatedTarget)) {
+          dropzone.classList.remove("is-dragover");
+        }
+      });
+      dropzone.addEventListener("drop", function (e) {
+        e.preventDefault();
+        dropzone.classList.remove("is-dragover");
+        collectDroppedFiles(e.dataTransfer).then(inspectSelectedFiles).catch(function () {
+          showToast("读取拖入文件失败，请使用「选择打包目录」按钮", "error");
+        });
+      });
+
+      versionsTbody.addEventListener("click", function (e) {
+        var shaBtn = e.target.closest(".sha-copy");
+        if (shaBtn) {
+          var digest = shaBtn.getAttribute("data-sha") || "";
+          if (!digest) return;
+          copyText(digest).then(function () {
+            showToast("已复制 SHA-256: " + digest.slice(0, 12) + "…", "ok");
+          }).catch(function () {
+            showToast("复制失败", "error");
+          });
+          return;
+        }
+        var filterLink = e.target.closest(".version-filter-link");
+        if (filterLink) {
+          var ver = filterLink.getAttribute("data-filter-version") || "";
+          state.search = ver;
+          state.filter = "all";
+          searchInput.value = ver;
+          applyView();
+          setActiveTab("clients");
+        }
+      });
+
+      versionsTbody.addEventListener("submit", function (e) {
+        var toggleForm = e.target.closest(".version-toggle-form");
+        if (toggleForm) {
+          e.preventDefault();
+          var row = toggleForm.closest("tr");
+          var ver = row ? row.getAttribute("data-version") : "";
+          var submitter = e.submitter || toggleForm.querySelector("button");
+          var enabling = submitter && submitter.value === "1";
+          submitFormAsync(toggleForm, submitter, function () {
+            return (enabling ? "已启用版本 " : "已停用版本 ") + ver;
+          });
+          return;
+        }
+        var deleteForm = e.target.closest(".version-delete-form");
+        if (deleteForm) {
+          e.preventDefault();
+          var delRow = deleteForm.closest("tr");
+          var delVer = delRow ? delRow.getAttribute("data-version") : "";
+          var isLatest = delRow && delRow.getAttribute("data-is-latest") === "1";
+          var msg = isLatest
+            ? ("版本 " + delVer + " 当前正在向客户端推送！删除后文件将永久移除且无法撤回，确认删除吗？")
+            : ("确认永久删除版本 " + delVer + " 的所有服务器文件吗？");
+          if (!window.confirm(msg)) return;
+          var delBtn = e.submitter || deleteForm.querySelector("button");
+          submitFormAsync(deleteForm, delBtn, function () {
+            return "已删除版本 " + delVer;
+          });
+        }
+      });
+
+      distributionPanel.addEventListener("submit", function (e) {
+        var form = e.target.closest(".dist-clean-form");
+        if (!form) return;
+        e.preventDefault();
+        var count = form.getAttribute("data-clean-count") || "0";
+        var size = form.getAttribute("data-clean-size") || "";
+        if (!window.confirm("确认清理 distribution 目录中的 " + count + " 个已发布冗余文件（共释放 " + size + "）吗？")) {
+          return;
+        }
+        var btn = e.submitter || form.querySelector("button");
+        submitFormAsync(form, btn, function () {
+          return "已清理 " + count + " 个冗余文件（释放 " + size + "）";
+        });
+      });
+
+      window.addEventListener("beforeunload", function (e) {
+        if (uploadState.uploading) {
+          e.preventDefault();
+          e.returnValue = "";
+        }
+      });
 
       document.addEventListener("keydown", function (e) {
-        if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (state.activeTab === "clients" && e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
           var tag = document.activeElement ? document.activeElement.tagName : "";
           if (tag !== "INPUT" && tag !== "TEXTAREA") {
             e.preventDefault();
             searchInput.focus();
             searchInput.select();
           }
-        } else if (e.key === "Escape" && document.activeElement === searchInput && searchInput.value) {
+        } else if (state.activeTab === "clients" && e.key === "Escape" && document.activeElement === searchInput && searchInput.value) {
           state.search = "";
           searchInput.value = "";
           applyView();
         }
       });
 
+      setActiveTab(state.activeTab);
       updateDurationUI();
       updateTzUI();
       updateThemeUI();
       enhanceRows();
+      enhanceVersionRows();
       applyView();
     })();
   </script>

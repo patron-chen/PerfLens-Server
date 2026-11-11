@@ -23,7 +23,13 @@ import uvicorn
 
 from activation_server.app import Registry, create_app
 from activation_server.protocol import ACTIVATION_PATH, verify_code
-from activation_server.updates import SIGNING_PREFIX, UPDATES_PATH, artifact_names, publish_update
+from activation_server.updates import (
+    SIGNING_PREFIX,
+    UPDATES_PATH,
+    UploadSessionManager,
+    artifact_names,
+    publish_update,
+)
 
 
 class ActivationServerTests(unittest.TestCase):
@@ -55,14 +61,14 @@ class ActivationServerTests(unittest.TestCase):
             self.assertTrue(worker.is_alive() and time.monotonic() < deadline, "Loopback activation server failed to start")
             time.sleep(.01)
 
-    def request(self, method, path, data=None, *, auth=None, content_type=None):
-        headers = {}
+    def request(self, method, path, data=None, *, auth=None, content_type=None, headers=None):
+        req_headers = dict(headers or {})
         if auth:
-            headers["Authorization"] = "Basic " + base64.b64encode(auth).decode("ascii")
+            req_headers["Authorization"] = "Basic " + base64.b64encode(auth).decode("ascii")
         if content_type:
-            headers["Content-Type"] = content_type
+            req_headers["Content-Type"] = content_type
         with closing(HTTPConnection("127.0.0.1", self.port, timeout=5)) as connection:
-            connection.request(method, path, body=data, headers=headers)
+            connection.request(method, path, body=data, headers=req_headers)
             response = connection.getresponse()
             return response.status, response.read().decode("utf-8")
 
@@ -278,6 +284,10 @@ class ActivationServerTests(unittest.TestCase):
         wait_for_version("0.10.0")
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer"), (200, installer.name))
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer"), (200, artifact_names("0.9.0")["installer"]))
+        # Verify watched distribution consumes published files so no duplicate copies remain.
+        self.assertFalse((distribution / "manifest.json").exists())
+        self.assertFalse(installer.exists())
+        self.assertFalse((distribution / names["unpacked"]).exists())
 
     def test_admin_page_renders_summary_stats_and_row_metadata(self):
         self.start_server()
@@ -300,3 +310,295 @@ class ActivationServerTests(unittest.TestCase):
         self.assertIn('data-computer="Node&quot;A&quot;&lt;1&gt;"', html)
         self.assertIn(f'data-uid="{uid_expired_disabled}"', html)
         self.assertIn('data-auto-issue="0"', html)
+
+    def test_move_publish_preserves_sources_on_verification_failure(self):
+        bad = self.write_release(self.folder / "bad-move", "0.11.0")
+        names = artifact_names("0.11.0")
+        tampered = bad / names["unpacked"]
+        tampered.write_bytes(b"x" * tampered.stat().st_size)
+        with self.assertRaisesRegex(ValueError, "mismatch"):
+            publish_update(self.folder, bad, self.key, move_artifacts=True, source="distribution")
+        # Both source files and manifest must remain intact if verification fails after staging.
+        self.assertTrue((bad / names["installer"]).is_file())
+        self.assertTrue(tampered.is_file())
+        self.assertTrue((bad / "manifest.json").is_file())
+
+    def test_web_chunked_upload_and_version_lifecycle(self):
+        self.enterContext(patch("activation_server.updates.UPLOAD_CHUNK_BYTES", 8))
+        self.start_server()
+        auth = b"test-admin:test-password"
+        self.registry.issue("1" * 64, "0.9.0", computer_name="Node09")
+
+        _, html = self.request("GET", "/admin", auth=auth)
+        csrf = re.search(r'name="csrf" value="([^"]+)"', html)[1]
+
+        def upload_release(version, *, enabled=True, tamper=False):
+            rel = self.write_release(self.folder / f"web-{version}-{'tamper' if tamper else 'ok'}", version)
+            manifest = json.loads((rel / "manifest.json").read_text(encoding="utf-8"))
+            status, body = self.request(
+                "POST",
+                "/admin/updates/upload/init",
+                json.dumps({"manifest": manifest, "enabled": enabled}),
+                auth=auth,
+                content_type="application/json",
+                headers={"X-CSRF-Token": csrf},
+            )
+            self.assertEqual(status, 200, body)
+            session = json.loads(body)
+            sid = session["session_id"]
+            chunk_size = session["chunk_bytes"]
+            self.assertEqual(chunk_size, 8)
+            for kind, name in artifact_names(version).items():
+                payload = (rel / name).read_bytes()
+                if tamper and kind == "unpacked":
+                    payload = b"X" * len(payload)
+                offset = 0
+                while offset < len(payload):
+                    piece = payload[offset:offset + chunk_size]
+                    c_status, c_body = self.request(
+                        "POST",
+                        f"/admin/updates/upload/{sid}/{kind}",
+                        piece,
+                        auth=auth,
+                        content_type="application/octet-stream",
+                        headers={"X-CSRF-Token": csrf, "X-Chunk-Offset": str(offset)},
+                    )
+                    self.assertEqual(c_status, 200, c_body)
+                    offset += len(piece)
+            return self.request(
+                "POST",
+                f"/admin/updates/upload/{sid}/complete",
+                b"{}",
+                auth=auth,
+                content_type="application/json",
+                headers={"X-CSRF-Token": csrf},
+            ), rel
+
+        # Auth and CSRF checks on upload init.
+        self.assertEqual(self.request("POST", "/admin/updates/upload/init", b"{}")[0], 401)
+        self.assertEqual(
+            self.request("POST", "/admin/updates/upload/init", b"{}", auth=auth, content_type="application/json")[0],
+            403,
+        )
+
+        # Public key mismatch rejected at init before transferring bytes.
+        wrong_manifest = json.loads((self.write_release(self.folder / "wrong-key", "0.8.0") / "manifest.json").read_text())
+        wrong_manifest["activation_public_key_sha256"] = "0" * 64
+        self.assertEqual(
+            self.request(
+                "POST",
+                "/admin/updates/upload/init",
+                json.dumps({"manifest": wrong_manifest}),
+                auth=auth,
+                content_type="application/json",
+                headers={"X-CSRF-Token": csrf},
+            )[0],
+            422,
+        )
+
+        # Tampered artifact rejected on complete with SHA-256 error and staging cleaned up.
+        (tamper_status, tamper_body), _ = upload_release("0.8.1", tamper=True)
+        self.assertEqual(tamper_status, 422)
+        self.assertIn("SHA-256 mismatch", tamper_body)
+        self.assertFalse(list((self.folder / "updates").glob(".uploading-*")))
+
+        # Successful upload of 0.9.0 (enabled) and 0.10.0 (disabled initially for internal testing).
+        (st_090, body_090), _ = upload_release("0.9.0", enabled=True)
+        self.assertEqual(st_090, 200)
+        self.assertEqual(json.loads(body_090)["version"], "0.9.0")
+
+        # Duplicate version 0.9.0 rejected with 409 at init.
+        dup_manifest = json.loads((self.write_release(self.folder / "dup-0.9.0", "0.9.0") / "manifest.json").read_text())
+        self.assertEqual(
+            self.request(
+                "POST",
+                "/admin/updates/upload/init",
+                json.dumps({"manifest": dup_manifest}),
+                auth=auth,
+                content_type="application/json",
+                headers={"X-CSRF-Token": csrf},
+            )[0],
+            409,
+        )
+
+        (st_100, _), _ = upload_release("0.10.0", enabled=False)
+        self.assertEqual(st_100, 200)
+
+        # Disabled 0.10.0 must not appear in /latest or public downloads, while admin download works.
+        latest_code, latest_body = self.request("GET", f"{UPDATES_PATH}/latest")
+        self.assertEqual(latest_code, 200)
+        latest_payload = json.loads(base64.b64decode(json.loads(latest_body)["payload"]))
+        self.assertEqual(latest_payload["version"], "0.9.0")
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer")[0], 404)
+        self.assertEqual(
+            self.request("GET", "/admin/updates/0.10.0/installer", auth=auth),
+            (200, artifact_names("0.10.0")["installer"]),
+        )
+
+        # Admin HTML reflects version list and client version usage count.
+        _, admin_html = self.request("GET", "/admin", auth=auth)
+        self.assertIn('data-filter-version="0.9.0"', admin_html)
+        self.assertIn("1 台", admin_html)
+
+        # Enable 0.10.0 -> /latest switches to 0.10.0 and public download opens.
+        self.assertEqual(
+            self.request(
+                "POST",
+                "/admin/updates/0.10.0/status",
+                urlencode({"enabled": "1", "csrf": csrf}),
+                auth=auth,
+                content_type="application/x-www-form-urlencoded",
+            )[0],
+            303,
+        )
+        latest_payload = json.loads(base64.b64decode(json.loads(self.request("GET", f"{UPDATES_PATH}/latest")[1])["payload"]))
+        self.assertEqual(latest_payload["version"], "0.10.0")
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer")[0], 200)
+
+        # Disable 0.10.0 -> /latest rolls back to 0.9.0 and public download blocks 0.10.0 again.
+        self.assertEqual(
+            self.request(
+                "POST",
+                "/admin/updates/0.10.0/status",
+                urlencode({"enabled": "0", "csrf": csrf}),
+                auth=auth,
+                content_type="application/x-www-form-urlencoded",
+            )[0],
+            303,
+        )
+        latest_payload = json.loads(base64.b64decode(json.loads(self.request("GET", f"{UPDATES_PATH}/latest")[1])["payload"]))
+        self.assertEqual(latest_payload["version"], "0.9.0")
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer")[0], 404)
+
+        # Delete 0.10.0 and verify it can be re-uploaded afterward.
+        self.assertEqual(
+            self.request(
+                "POST",
+                "/admin/updates/0.10.0/delete",
+                urlencode({"csrf": csrf}),
+                auth=auth,
+                content_type="application/x-www-form-urlencoded",
+            )[0],
+            303,
+        )
+        self.assertFalse((self.folder / "updates" / "0.10.0").exists())
+        (st_reup, _), _ = upload_release("0.10.0", enabled=True)
+        self.assertEqual(st_reup, 200)
+
+        # Abort cleans up staging immediately.
+        rel_abort = self.write_release(self.folder / "abort-0.11.0", "0.11.0")
+        abort_manifest = json.loads((rel_abort / "manifest.json").read_text(encoding="utf-8"))
+        _, init_body = self.request(
+            "POST",
+            "/admin/updates/upload/init",
+            json.dumps({"manifest": abort_manifest}),
+            auth=auth,
+            content_type="application/json",
+            headers={"X-CSRF-Token": csrf},
+        )
+        abort_sid = json.loads(init_body)["session_id"]
+        # Wrong offset rejected with 409; chunk exceeding chunk_bytes rejected with 413.
+        self.assertEqual(
+            self.request(
+                "POST",
+                f"/admin/updates/upload/{abort_sid}/installer",
+                b"1234",
+                auth=auth,
+                content_type="application/octet-stream",
+                headers={"X-CSRF-Token": csrf, "X-Chunk-Offset": "4"},
+            )[0],
+            409,
+        )
+        self.assertEqual(
+            self.request(
+                "POST",
+                f"/admin/updates/upload/{abort_sid}/installer",
+                b"123456789",
+                auth=auth,
+                content_type="application/octet-stream",
+                headers={"X-CSRF-Token": csrf, "X-Chunk-Offset": "0"},
+            )[0],
+            413,
+        )
+        self.assertEqual(
+            self.request(
+                "POST",
+                f"/admin/updates/upload/{abort_sid}/installer",
+                b"1234",
+                auth=auth,
+                content_type="application/octet-stream",
+                headers={"X-CSRF-Token": csrf, "X-Chunk-Offset": "0"},
+            )[0],
+            200,
+        )
+        self.assertTrue(list((self.folder / "updates").glob(".uploading-*")))
+        del_status, del_body = self.request(
+            "DELETE",
+            f"/admin/updates/upload/{abort_sid}",
+            auth=auth,
+            headers={"X-CSRF-Token": csrf},
+        )
+        self.assertEqual(del_status, 200)
+        self.assertTrue(json.loads(del_body)["aborted"])
+        self.assertFalse(list((self.folder / "updates").glob(".uploading-*")))
+
+        # Disabling all remaining versions makes /latest return 204.
+        for ver in ("0.9.0", "0.10.0"):
+            self.request(
+                "POST",
+                f"/admin/updates/{ver}/status",
+                urlencode({"enabled": "0", "csrf": csrf}),
+                auth=auth,
+                content_type="application/x-www-form-urlencoded",
+            )
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/latest"), (204, ""))
+
+    def test_distribution_redundancy_scan_and_clean_preserves_unknown_files(self):
+        distribution = self.folder / "dist-redundant"
+        distribution.mkdir()
+        self.start_server(distribution_dir=distribution)
+        auth = b"test-admin:test-password"
+
+        rel_090 = self.write_release(self.folder / "src-0.9.0", "0.9.0")
+        publish_update(self.folder, rel_090, self.key, move_artifacts=False)
+        # Simulate historical leftovers in distribution for an already published version.
+        self.write_release(distribution, "0.9.0")
+        keep_note = distribution / "keep-me.txt"
+        keep_note.write_text("unrelated", encoding="utf-8")
+        # Also keep an unpublished version artifact that shouldn't be removed by redundancy cleaner.
+        unpublished_name = artifact_names("0.11.0")["installer"]
+        unpublished_file = distribution / unpublished_name
+        unpublished_file.write_bytes(b"new-build")
+
+        _, html = self.request("GET", "/admin", auth=auth)
+        self.assertIn("历史冗余文件", html)
+        self.assertIn(artifact_names("0.9.0")["installer"], html)
+        csrf = re.search(r'name="csrf" value="([^"]+)"', html)[1]
+
+        status, _ = self.request(
+            "POST",
+            "/admin/updates/distribution/clean",
+            urlencode({"csrf": csrf}),
+            auth=auth,
+            content_type="application/x-www-form-urlencoded",
+        )
+        self.assertEqual(status, 303)
+        self.assertFalse((distribution / "manifest.json").exists())
+        self.assertFalse((distribution / artifact_names("0.9.0")["installer"]).exists())
+        self.assertFalse((distribution / artifact_names("0.9.0")["unpacked"]).exists())
+        self.assertTrue(keep_note.is_file())
+        self.assertTrue(unpublished_file.is_file())
+
+    def test_upload_session_manager_prunes_stale_staging_dirs(self):
+        updates = self.folder / "updates"
+        updates.mkdir()
+        stale = updates / ".uploading-deadbeef-123"
+        stale.mkdir()
+        (stale / "part.bin").write_bytes(b"stale")
+        now = 2000000000
+        manager = UploadSessionManager(updates, self.key, session_ttl=60, clock=lambda: now)
+        # Force mtime older than TTL.
+        import os
+        os.utime(stale, (now - 120, now - 120))
+        manager.prune_stale()
+        self.assertFalse(stale.exists())

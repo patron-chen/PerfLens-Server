@@ -98,9 +98,12 @@ bash deploy.sh --install-service
 
 激活请求可附带 `computer_name`、`local_ip`（IPv4 或 IPv6）和 `client_version`。服务在成功签发时按 UID 保存最近一次提供的值。桌面客户端启动时上报一次，即使本机已有有效授权缓存。服务启动时自动升级 SQLite，历史记录的未知字段显示「—」，旧客户端可继续按 UID 激活。
 
-## 发布在线更新
+## 发布与管理在线更新
 
-用同一服务器地址和公钥打包更高的稳定版本 `X.Y.Z`。先将同一批次的安装 EXE 和解包 ZIP 复制到服务器的 `distribution`，再替换根目录的 `manifest.json`。
+支持以下三种方式发布更高或新的稳定版本 `X.Y.Z`（要求打包时使用同一激活服务器地址与公钥）：
+
+1. **网页端直接上传（推荐）**：登录 `/admin` 切换到「版本管理」标签页，选择或拖入打包输出目录（或 `manifest.json`、Setup EXE 和 Unpacked ZIP），分片流式校验签名后直接写入 `private/activation/updates`，不产生 `distribution` 副本。上传时可选择「上传后立即启用」或先以「停用」状态入库内测。
+2. **`distribution` 目录自动监听**：将同一批次的安装 EXE、解包 ZIP 和 `manifest.json` 复制到 `distribution` 目录：
 
 ```text
 distribution/
@@ -109,17 +112,20 @@ distribution/
   manifest.json
 ```
 
-服务每 5 秒检查发行目录，校验公钥指纹、产物大小和 SHA-256，用现有 Ed25519 私钥签名后发布。复制未完成或校验失败期间，客户端仍可获取上一个已发布版本。新版本发布后，支持在线更新的 Windows x64 安装版和解包版在下次启动时自动检查并提示下载，服务器可持续运行。发行目录的写权限仅授予发布人员。
+服务每 5 秒检查 `distribution`，校验公钥指纹、产物大小和 SHA-256 后，将其**移动**到 `private/activation/updates/<version>/`（同盘零拷贝，并自动删除已消费的 `distribution/manifest.json`，避免双份存储）。若存在历史遗留文件，可在管理页「版本管理」中一键清理冗余。
 
-管理页显示最高的已发布版本。签名清单和产物保留在 `private/activation/updates`，同版本保留首次发布的文件，已有客户端下载时仍可取到原包。
-
-手动发布时使用部署环境的 Python，并指定运行中的服务数据目录。
+3. **手动 CLI 发布**：使用部署环境的 Python 并指定服务数据目录（默认复制保留源文件；附加 `--move` 可移走源文件）：
 
 ```text
 python -m activation_server publish-update --data-dir private/activation --release-dir <发行目录>
 ```
 
-`GET /api/v1/updates/windows-x64/latest` 返回签名清单，无发布版本时返回 `204`。`GET /api/v1/updates/windows-x64/{version}/{kind}` 按 `installer` 或 `unpacked` 下载指定版本。首个支持在线更新的客户端包通过手工安装或解压分发。
+### 版本管理与下线策略
+
+- 管理页顶部显示当前的推送版本，点击直达「版本管理」查看已发布版本、发布来源、文件大小、SHA-256、客户端分布及管理员下载入口。
+- `/api/v1/updates/windows-x64/latest` 返回版本号最高的**已启用**版本；无可用版本时返回 `204`。
+- 在管理页将某版本设为「停用」后，`/latest` 自动回落到次高已启用版本，且公共下载接口 `/api/v1/updates/windows-x64/{version}/{kind}` 一并屏蔽返回 `404`（防止已弹窗客户端继续拉取），管理页仍可通过鉴权入口下载。
+- 已发布版本保持不可变，如需重传同版本号需先在版本列表删除旧版本。
 
 ## 验证
 

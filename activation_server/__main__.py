@@ -52,6 +52,7 @@ def main(argv=None):
     publish = commands.add_parser("publish-update", help="Publish a signed Windows x64 update")
     publish.add_argument("--data-dir", type=Path, required=True)
     publish.add_argument("--release-dir", type=Path, required=True)
+    publish.add_argument("--move", action="store_true", help="Move artifacts into updates instead of copying")
     setup_cmd = commands.add_parser("setup", help="Initialize environment, dependencies, and keys")
     setup_cmd.add_argument("--python", help="Path to Python 3.13 64-bit interpreter to use")
     setup_cmd.add_argument("--mirror", help="Mirror URL prefix for downloading standalone Python")
@@ -77,7 +78,7 @@ def main(argv=None):
             return
         if args.command == "publish-update":
             key = load_private_key(args.data_dir / "activation-private.pem")
-            version = publish_update(args.data_dir, args.release_dir, key)
+            version = publish_update(args.data_dir, args.release_dir, key, move_artifacts=args.move, source="cli")
             print(f"Published Windows x64 update {version}")
             return
         if args.command == "setup":
