@@ -25,6 +25,9 @@ from activation_server.app import Registry, create_app
 from activation_server.protocol import ACTIVATION_PATH, verify_code
 from activation_server.updates import (
     SIGNING_PREFIX,
+    STAGE_CANARY,
+    STAGE_DISABLED,
+    STAGE_RELEASED,
     UPDATES_PATH,
     UploadSessionManager,
     artifact_names,
@@ -217,17 +220,20 @@ class ActivationServerTests(unittest.TestCase):
         old = self.write_release(self.folder / "old", "0.9.0")
         newest = self.write_release(self.folder / "newest", "0.10.0")
         bad = self.write_release(self.folder / "bad", "0.11.0")
-        self.assertEqual(publish_update(self.folder, old, self.key), "0.9.0")
+        self.assertEqual(publish_update(self.folder, old, self.key, stage=STAGE_RELEASED), "0.9.0")
         with self.assertRaisesRegex(ValueError, "already published"):
-            publish_update(self.folder, old, self.key)
+            publish_update(self.folder, old, self.key, stage=STAGE_RELEASED)
         with self.assertRaisesRegex(ValueError, "public key"):
-            publish_update(self.folder, newest, Ed25519PrivateKey.generate())
+            publish_update(self.folder, newest, Ed25519PrivateKey.generate(), stage=STAGE_RELEASED)
         tampered = bad / artifact_names("0.11.0")["unpacked"]
         tampered.write_bytes(b"x" * tampered.stat().st_size)
         with self.assertRaisesRegex(ValueError, "mismatch"):
-            publish_update(self.folder, bad, self.key)
+            publish_update(self.folder, bad, self.key, stage=STAGE_RELEASED)
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.11.0/installer")[0], 404)
-        publish_update(self.folder, newest, self.key)
+        publish_update(self.folder, newest, self.key, stage=STAGE_RELEASED)
+        # A canary version published by default remains hidden from clients without an allowed UID.
+        canary_rel = self.write_release(self.folder / "canary-next", "0.12.0")
+        self.assertEqual(publish_update(self.folder, canary_rel, self.key), "0.12.0")
         code, body = self.request("GET", latest)
         self.assertEqual(code, 200)
         envelope = json.loads(body)
@@ -239,21 +245,29 @@ class ActivationServerTests(unittest.TestCase):
             self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/{kind}"), (200, name))
             self.assertEqual(signed["artifacts"][kind]["sha256"], hashlib.sha256(name.encode("ascii")).hexdigest())
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer"), (200, artifact_names("0.9.0")["installer"]))
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.12.0/installer")[0], 404)
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/portable")[0], 404)
-        self.assertIn("当前发布版本 <strong>0.10.0</strong>", self.request("GET", "/admin", auth=b"test-admin:test-password")[1])
+        admin_html = self.request("GET", "/admin", auth=b"test-admin:test-password")[1]
+        self.assertIn("当前发布版本 <strong>0.10.0</strong>", admin_html)
+        self.assertIn("当前灰度版本 <strong>0.12.0</strong>", admin_html)
 
     def test_distribution_publishes_complete_releases_without_restarting(self):
         distribution = self.folder / "custom distribution"
         distribution.mkdir()
+        canary_uid = "c" * 64
+        other_uid = "d" * 64
+        self.registry.add_default_canary_members([canary_uid], note="dist-canary")
         self.enterContext(patch("activation_server.updates.DISTRIBUTION_POLL_SECONDS", 0.02))
         self.start_server(distribution_dir=distribution)
         latest = f"{UPDATES_PATH}/latest"
-        self.assertEqual(self.request("GET", latest), (204, ""))
+        canary_headers = {"X-PerfLens-UID": canary_uid}
+        other_headers = {"X-PerfLens-UID": other_uid}
+        self.assertEqual(self.request("GET", latest, headers=canary_headers), (204, ""))
 
         def wait_for_version(expected):
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
-                code, body = self.request("GET", latest)
+                code, body = self.request("GET", latest, headers=canary_headers)
                 if code == 200:
                     envelope = json.loads(body)
                     payload = base64.b64decode(envelope["payload"])
@@ -266,6 +280,11 @@ class ActivationServerTests(unittest.TestCase):
 
         self.write_release(distribution, "0.9.0")
         previous = wait_for_version("0.9.0")
+        # Non-canary clients must not receive watcher-published canary releases before full promotion.
+        self.assertEqual(self.request("GET", latest), (204, ""))
+        self.assertEqual(self.request("GET", latest, headers=other_headers), (204, ""))
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer", headers=other_headers)[0], 404)
+
         release = self.write_release(self.folder / "newest", "0.10.0")
         names = artifact_names("0.10.0")
         installer = distribution / names["installer"]
@@ -277,13 +296,13 @@ class ActivationServerTests(unittest.TestCase):
             while not any("Size mismatch" in line for line in logs.output):
                 self.assertLess(time.monotonic(), deadline, "Incomplete upload was not checked")
                 time.sleep(.01)
-        self.assertEqual(self.request("GET", latest), previous)
-        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer")[0], 404)
+        self.assertEqual(self.request("GET", latest, headers=canary_headers), previous)
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer", headers=canary_headers)[0], 404)
 
         installer.write_bytes((release / installer.name).read_bytes())
         wait_for_version("0.10.0")
-        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer"), (200, installer.name))
-        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer"), (200, artifact_names("0.9.0")["installer"]))
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer", headers=canary_headers), (200, installer.name))
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer", headers=canary_headers), (200, artifact_names("0.9.0")["installer"]))
         # Verify watched distribution consumes published files so no duplicate copies remain.
         self.assertFalse((distribution / "manifest.json").exists())
         self.assertFalse(installer.exists())
@@ -310,6 +329,17 @@ class ActivationServerTests(unittest.TestCase):
         self.assertIn('data-computer="Node&quot;A&quot;&lt;1&gt;"', html)
         self.assertIn(f'data-uid="{uid_expired_disabled}"', html)
         self.assertIn('data-auto-issue="0"', html)
+        for table_id in ("clients", "versions", "default-canary", "modal-members"):
+            self.assertIn(f'data-table-id="{table_id}"', html)
+            self.assertIn(f'data-sort-table="{table_id}"', html)
+            self.assertIn(f'data-reset-table="{table_id}"', html)
+        self.assertIn('data-ver-filter="canary"', html)
+        self.assertIn('id="default-canary-search-clear"', html)
+        self.assertIn('id="modal-members-search"', html)
+        self.assertIn('id="upload-progress"', html)
+        self.assertIn('id="progress-stats"', html)
+        self.assertIn('id="progress-speed"', html)
+        self.assertNotIn("uploadEnabledCheckbox", html)
 
     def test_move_publish_preserves_sources_on_verification_failure(self):
         bad = self.write_release(self.folder / "bad-move", "0.11.0")
@@ -332,13 +362,18 @@ class ActivationServerTests(unittest.TestCase):
         _, html = self.request("GET", "/admin", auth=auth)
         csrf = re.search(r'name="csrf" value="([^"]+)"', html)[1]
 
-        def upload_release(version, *, enabled=True, tamper=False):
+        def upload_release(version, *, stage=None, inherit_from=None, tamper=False):
             rel = self.write_release(self.folder / f"web-{version}-{'tamper' if tamper else 'ok'}", version)
             manifest = json.loads((rel / "manifest.json").read_text(encoding="utf-8"))
+            init_payload = {"manifest": manifest}
+            if stage is not None:
+                init_payload["stage"] = stage
+            if inherit_from is not None:
+                init_payload["inherit_from"] = inherit_from
             status, body = self.request(
                 "POST",
                 "/admin/updates/upload/init",
-                json.dumps({"manifest": manifest, "enabled": enabled}),
+                json.dumps(init_payload),
                 auth=auth,
                 content_type="application/json",
                 headers={"X-CSRF-Token": csrf},
@@ -402,8 +437,14 @@ class ActivationServerTests(unittest.TestCase):
         self.assertIn("SHA-256 mismatch", tamper_body)
         self.assertFalse(list((self.folder / "updates").glob(".uploading-*")))
 
-        # Successful upload of 0.9.0 (enabled) and 0.10.0 (disabled initially for internal testing).
-        (st_090, body_090), _ = upload_release("0.9.0", enabled=True)
+        # Upload without stage defaults to canary and stays hidden from regular clients.
+        (st_default, body_default), _ = upload_release("0.8.2")
+        self.assertEqual(st_default, 200)
+        self.assertEqual(json.loads(body_default)["stage"], STAGE_CANARY)
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/latest"), (204, ""))
+
+        # Successful upload of 0.9.0 (released) and 0.10.0 (disabled initially for internal testing).
+        (st_090, body_090), _ = upload_release("0.9.0", stage=STAGE_RELEASED)
         self.assertEqual(st_090, 200)
         self.assertEqual(json.loads(body_090)["version"], "0.9.0")
 
@@ -421,7 +462,7 @@ class ActivationServerTests(unittest.TestCase):
             409,
         )
 
-        (st_100, _), _ = upload_release("0.10.0", enabled=False)
+        (st_100, _), _ = upload_release("0.10.0", stage=STAGE_DISABLED)
         self.assertEqual(st_100, 200)
 
         # Disabled 0.10.0 must not appear in /latest or public downloads, while admin download works.
@@ -439,13 +480,17 @@ class ActivationServerTests(unittest.TestCase):
         _, admin_html = self.request("GET", "/admin", auth=auth)
         self.assertIn('data-filter-version="0.9.0"', admin_html)
         self.assertIn("1 台", admin_html)
+        self.assertIn('data-version="0.9.0" data-source="web"', admin_html)
+        self.assertIn('data-client-count="1"', admin_html)
+        self.assertIn('data-installer-bytes="', admin_html)
+        self.assertIn('data-unpacked-bytes="', admin_html)
 
         # Enable 0.10.0 -> /latest switches to 0.10.0 and public download opens.
         self.assertEqual(
             self.request(
                 "POST",
                 "/admin/updates/0.10.0/status",
-                urlencode({"enabled": "1", "csrf": csrf}),
+                urlencode({"stage": STAGE_RELEASED, "csrf": csrf}),
                 auth=auth,
                 content_type="application/x-www-form-urlencoded",
             )[0],
@@ -460,7 +505,7 @@ class ActivationServerTests(unittest.TestCase):
             self.request(
                 "POST",
                 "/admin/updates/0.10.0/status",
-                urlencode({"enabled": "0", "csrf": csrf}),
+                urlencode({"stage": STAGE_DISABLED, "csrf": csrf}),
                 auth=auth,
                 content_type="application/x-www-form-urlencoded",
             )[0],
@@ -482,7 +527,7 @@ class ActivationServerTests(unittest.TestCase):
             303,
         )
         self.assertFalse((self.folder / "updates" / "0.10.0").exists())
-        (st_reup, _), _ = upload_release("0.10.0", enabled=True)
+        (st_reup, _), _ = upload_release("0.10.0", stage=STAGE_RELEASED)
         self.assertEqual(st_reup, 200)
 
         # Abort cleans up staging immediately.
@@ -602,3 +647,170 @@ class ActivationServerTests(unittest.TestCase):
         os.utime(stale, (now - 120, now - 120))
         manager.prune_stale()
         self.assertFalse(stale.exists())
+
+    def test_canary_allowlist_routing_inheritance_and_cleanup(self):
+        self.start_server()
+        auth = b"test-admin:test-password"
+        uid_qa = "a" * 64
+        uid_dev = "b" * 64
+        uid_regular = "c" * 64
+        uid_extra = "d" * 64
+        # Pre-register uid_dev (never activated) + activated uid_qa.
+        self.registry.issue(uid_qa, "0.8.0", computer_name="QA-Box")
+        self.registry.issue(uid_regular, "0.8.0", computer_name="User-PC")
+
+        _, html = self.request("GET", "/admin", auth=auth)
+        csrf = re.search(r'name="csrf" value="([^"]+)"', html)[1]
+
+        def post_json(path, payload):
+            return self.request(
+                "POST",
+                path,
+                json.dumps(payload),
+                auth=auth,
+                content_type="application/json",
+                headers={"X-CSRF-Token": csrf},
+            )
+
+        def latest_for(uid=None):
+            hdrs = {"X-PerfLens-UID": uid} if uid is not None else None
+            code, body = self.request("GET", f"{UPDATES_PATH}/latest", headers=hdrs)
+            if code == 204:
+                return 204, None
+            payload = json.loads(base64.b64decode(json.loads(body)["payload"]))
+            return code, payload["version"]
+
+        # Manage default canary allowlist (pre-registered + activated UID).
+        st, body = post_json("/admin/canary/default/add", {"uids": [uid_qa.upper(), uid_dev], "note": "QA团队"})
+        self.assertEqual(st, 200, body)
+        self.assertEqual(json.loads(body)["default_count"], 2)
+
+        # Publish full 0.9.0 and canary 0.10.0 inheriting default allowlist.
+        rel_090 = self.write_release(self.folder / "rel-0.9.0", "0.9.0")
+        publish_update(self.folder, rel_090, self.key, stage=STAGE_RELEASED)
+        rel_100 = self.write_release(self.folder / "rel-0.10.0", "0.10.0")
+        publish_update(
+            self.folder,
+            rel_100,
+            self.key,
+            stage=STAGE_CANARY,
+            on_published=lambda ver, stg: self.registry.init_version_canary(ver, "default"),
+        )
+
+        # Removing uid_dev from default allowlist must not mutate already-created 0.10.0 roster.
+        self.assertEqual(post_json("/admin/canary/default/remove", {"uid": uid_dev})[0], 200)
+        st_v10, body_v10 = self.request("GET", "/admin/updates/0.10.0/canary", auth=auth)
+        self.assertEqual(st_v10, 200, body_v10)
+        self.assertEqual({m["uid"] for m in json.loads(body_v10)["members"]}, {uid_qa, uid_dev})
+
+        # Verify client routing isolation + download gating + case-insensitive header tolerance.
+        self.assertEqual(latest_for(None), (200, "0.9.0"))
+        self.assertEqual(latest_for(uid_regular), (200, "0.9.0"))
+        self.assertEqual(latest_for("not-a-uid"), (200, "0.9.0"))
+        self.assertEqual(latest_for(uid_qa.upper()), (200, "0.10.0"))
+        self.assertEqual(latest_for(uid_dev), (200, "0.10.0"))
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer", headers={"X-PerfLens-UID": uid_regular})[0], 404)
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer", headers={"X-PerfLens-UID": uid_qa})[0], 200)
+
+        # Higher full release overrides older canary version for canary users too.
+        rel_110 = self.write_release(self.folder / "rel-0.11.0", "0.11.0")
+        publish_update(self.folder, rel_110, self.key, stage=STAGE_RELEASED)
+        self.assertEqual(latest_for(uid_qa), (200, "0.11.0"))
+        self.assertEqual(latest_for(uid_regular), (200, "0.11.0"))
+        self.request(
+            "POST",
+            "/admin/updates/0.11.0/status",
+            urlencode({"stage": STAGE_DISABLED, "csrf": csrf}),
+            auth=auth,
+            content_type="application/x-www-form-urlencoded",
+        )
+
+        # Web upload 0.12.0 inheriting directly from 0.10.0, then mutate and save back to default.
+        manifest_120 = json.loads((self.write_release(self.folder / "rel-0.12.0", "0.12.0") / "manifest.json").read_text())
+        _, init_120 = post_json("/admin/updates/upload/init", {"manifest": manifest_120, "inherit_from": "0.10.0"})
+        sid_120 = json.loads(init_120)["session_id"]
+        for kind, name in artifact_names("0.12.0").items():
+            data = (self.folder / "rel-0.12.0" / name).read_bytes()
+            self.assertEqual(
+                self.request(
+                    "POST",
+                    f"/admin/updates/upload/{sid_120}/{kind}",
+                    data,
+                    auth=auth,
+                    content_type="application/octet-stream",
+                    headers={"X-CSRF-Token": csrf, "X-Chunk-Offset": "0"},
+                )[0],
+                200,
+            )
+        self.assertEqual(post_json(f"/admin/updates/upload/{sid_120}/complete", {})[0], 200)
+
+        # Add uid_extra and merge/remove on 0.12.0, then save 0.12.0 as default (preserving uid_qa note).
+        self.assertEqual(post_json("/admin/updates/0.12.0/canary/add", {"uid": uid_extra})[0], 200)
+        self.assertEqual(post_json("/admin/updates/0.12.0/canary/remove", {"uid": uid_dev})[0], 200)
+        st_save, body_save = post_json("/admin/updates/0.12.0/canary/save-default", {"mode": "replace"})
+        self.assertEqual(st_save, 200, body_save)
+        self.assertEqual(json.loads(body_save)["default_count"], 2)
+        default_notes = {m["uid"]: m["note"] for m in self.registry.list_default_canary_members()}
+        self.assertEqual(default_notes[uid_qa], "QA团队")
+        self.assertIn(uid_extra, default_notes)
+        self.assertNotIn(uid_dev, default_notes)
+
+        # Pausing 0.12.0 (disabled) falls back to 0.10.0/0.9.0, resuming restores 0.12.0 without losing roster.
+        self.request(
+            "POST",
+            "/admin/updates/0.12.0/status",
+            urlencode({"stage": STAGE_DISABLED, "csrf": csrf}),
+            auth=auth,
+            content_type="application/x-www-form-urlencoded",
+        )
+        self.assertEqual(latest_for(uid_extra), (200, "0.9.0"))
+        self.request(
+            "POST",
+            "/admin/updates/0.12.0/status",
+            urlencode({"stage": STAGE_CANARY, "csrf": csrf}),
+            auth=auth,
+            content_type="application/x-www-form-urlencoded",
+        )
+        self.assertEqual(latest_for(uid_extra), (200, "0.12.0"))
+
+        # Inherit default (merge) recovers uid_qa/uid_extra and deleting version clears SQLite roster rows.
+        self.assertEqual(
+            post_json("/admin/updates/0.10.0/canary/inherit", {"source": "0.12.0", "mode": "merge"})[0],
+            200,
+        )
+        self.assertTrue(self.registry.is_canary_member("0.10.0", uid_extra))
+        self.request(
+            "POST",
+            "/admin/updates/0.12.0/delete",
+            urlencode({"csrf": csrf}),
+            auth=auth,
+            content_type="application/x-www-form-urlencoded",
+        )
+        self.assertEqual(self.registry.list_version_canary_members("0.12.0"), [])
+
+    def test_cli_publish_update_canary_and_full_flags(self):
+        from activation_server.__main__ import main as cli_main
+
+        (self.folder / "activation-private.pem").write_bytes(
+            self.key.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.PKCS8,
+                serialization.NoEncryption(),
+            )
+        )
+        uid_qa = "e" * 64
+        self.registry.add_default_canary_members([uid_qa], note="cli-qa")
+
+        rel_canary = self.write_release(self.folder / "cli-0.9.0", "0.9.0")
+        cli_main(["publish-update", "--data-dir", str(self.folder), "--release-dir", str(rel_canary)])
+        self.assertTrue(self.registry.is_canary_member("0.9.0", uid_qa))
+
+        rel_empty = self.write_release(self.folder / "cli-0.10.0", "0.10.0")
+        cli_main(["publish-update", "--data-dir", str(self.folder), "--release-dir", str(rel_empty), "--inherit-from", "none"])
+        self.assertEqual(self.registry.list_version_canary_members("0.10.0"), [])
+
+        rel_full = self.write_release(self.folder / "cli-0.11.0", "0.11.0")
+        cli_main(["publish-update", "--data-dir", str(self.folder), "--release-dir", str(rel_full), "--full"])
+        self.assertNotIn("0.11.0", self.registry.version_canary_counts())
+        from activation_server.updates import version_stage
+        self.assertEqual(version_stage(self.folder / "updates" / "0.11.0"), STAGE_RELEASED)

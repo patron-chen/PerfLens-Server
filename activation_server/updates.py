@@ -21,6 +21,11 @@ VERSION_PATTERN = re.compile(r"(?:0|[1-9][0-9]{0,8})(?:\.(?:0|[1-9][0-9]{0,8})){
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 MANIFEST_FILENAME = "update.json"
 DISABLED_MARKER = ".disabled"
+CANARY_MARKER = ".canary"
+STAGE_RELEASED = "released"
+STAGE_CANARY = "canary"
+STAGE_DISABLED = "disabled"
+VALID_STAGES = frozenset({STAGE_RELEASED, STAGE_CANARY, STAGE_DISABLED})
 RELEASE_META_FILENAME = "meta.json"
 STAGING_PREFIX = ".publishing-"
 UPLOAD_STAGE_PREFIX = ".uploading-"
@@ -42,21 +47,61 @@ def _version_parts(version):
     return tuple(map(int, version.split(".")))
 
 
+def version_stage(version_dir):
+    if (version_dir / DISABLED_MARKER).exists():
+        return STAGE_DISABLED
+    if (version_dir / CANARY_MARKER).exists():
+        return STAGE_CANARY
+    return STAGE_RELEASED
+
+
 def is_version_enabled(version_dir):
-    return not (version_dir / DISABLED_MARKER).exists()
+    return version_stage(version_dir) == STAGE_RELEASED
 
 
-def latest_version(directory, *, include_disabled=False):
+def latest_version(directory, *, include_disabled=False, include_canary=False):
     if not directory.is_dir():
         return None
+    allowed = {STAGE_RELEASED}
+    if include_canary:
+        allowed.add(STAGE_CANARY)
+    if include_disabled:
+        allowed.add(STAGE_DISABLED)
     versions = (
         entry.name for entry in directory.iterdir()
         if entry.is_dir()
         and VERSION_PATTERN.fullmatch(entry.name)
         and (entry / MANIFEST_FILENAME).is_file()
-        and (include_disabled or is_version_enabled(entry))
+        and version_stage(entry) in allowed
     )
     return max(versions, key=_version_parts, default=None)
+
+
+def resolve_latest_version(directory, is_canary_member=None):
+    if not directory.is_dir():
+        return None
+    candidates = []
+    for entry in directory.iterdir():
+        if not entry.is_dir() or not VERSION_PATTERN.fullmatch(entry.name) or not (entry / MANIFEST_FILENAME).is_file():
+            continue
+        stage = version_stage(entry)
+        if stage == STAGE_RELEASED or (stage == STAGE_CANARY and is_canary_member is not None and is_canary_member(entry.name)):
+            candidates.append(entry.name)
+    return max(candidates, key=_version_parts, default=None)
+
+
+def is_version_accessible(updates_dir, version, *, is_canary_member=None):
+    if not VERSION_PATTERN.fullmatch(version):
+        return False
+    version_dir = updates_dir / version
+    if not version_dir.is_dir() or not (version_dir / MANIFEST_FILENAME).is_file():
+        return False
+    stage = version_stage(version_dir)
+    if stage == STAGE_RELEASED:
+        return True
+    if stage == STAGE_CANARY:
+        return is_canary_member is not None and bool(is_canary_member(version))
+    return False
 
 
 def _validate_manifest_record(record, signing_key):
@@ -104,12 +149,16 @@ def _build_signed_envelope(version, origin, artifacts, signing_key):
     return json.dumps(envelope)
 
 
-def _write_release_files(stage, version, origin, artifacts, signing_key, *, enabled=True, source="unknown", published_at=None):
-    (stage / MANIFEST_FILENAME).write_text(_build_signed_envelope(version, origin, artifacts, signing_key), encoding="ascii")
+def _write_release_files(stage_dir, version, origin, artifacts, signing_key, *, stage=STAGE_CANARY, source="unknown", published_at=None):
+    if stage not in VALID_STAGES:
+        raise ValueError(f"Invalid release stage: {stage}")
+    (stage_dir / MANIFEST_FILENAME).write_text(_build_signed_envelope(version, origin, artifacts, signing_key), encoding="ascii")
     meta = {"published_at": int(time.time() if published_at is None else published_at), "source": source}
-    (stage / RELEASE_META_FILENAME).write_text(json.dumps(meta), encoding="utf-8")
-    if not enabled:
-        (stage / DISABLED_MARKER).write_text("disabled\n", encoding="ascii")
+    (stage_dir / RELEASE_META_FILENAME).write_text(json.dumps(meta), encoding="utf-8")
+    if stage == STAGE_DISABLED:
+        (stage_dir / DISABLED_MARKER).write_text("disabled\n", encoding="ascii")
+    elif stage == STAGE_CANARY:
+        (stage_dir / CANARY_MARKER).write_text("canary\n", encoding="ascii")
 
 
 def _cleanup_flat_dir(directory):
@@ -146,13 +195,25 @@ def _copy_and_verify_file(source_file, staged_file, name, expected):
         raise ValueError(f"Size or SHA-256 mismatch for {name}")
 
 
-def publish_update(data_dir, release_dir, signing_key, *, newer_only=False, move_artifacts=False, source="cli"):
+def publish_update(
+    data_dir,
+    release_dir,
+    signing_key,
+    *,
+    newer_only=False,
+    move_artifacts=False,
+    source="cli",
+    stage=STAGE_CANARY,
+    on_published=None,
+):
+    if stage not in VALID_STAGES:
+        raise ValueError(f"Invalid release stage: {stage}")
     manifest_path = release_dir / "manifest.json"
     record = json.loads(manifest_path.read_text(encoding="utf-8"))
     version, origin, names, artifacts = _validate_manifest_record(record, signing_key)
     updates = data_dir / "updates"
     if newer_only:
-        current = latest_version(updates, include_disabled=True)
+        current = latest_version(updates, include_disabled=True, include_canary=True)
         if current is not None and _version_parts(version) <= _version_parts(current):
             return None
 
@@ -165,13 +226,13 @@ def publish_update(data_dir, release_dir, signing_key, *, newer_only=False, move
             raise ValueError(f"Size mismatch for {name}")
 
     updates.mkdir(parents=True, exist_ok=True)
-    stage = Path(tempfile.mkdtemp(prefix=STAGING_PREFIX, dir=updates))
+    stage_dir = Path(tempfile.mkdtemp(prefix=STAGING_PREFIX, dir=updates))
     moved_files = []
     copied_sources = []
     try:
         for kind, name in names.items():
             source_file = release_dir / name
-            staged_file = stage / name
+            staged_file = stage_dir / name
             if move_artifacts:
                 try:
                     # Same-filesystem rename avoids duplicating ~400 MiB and isolates the file from external writes.
@@ -186,9 +247,12 @@ def publish_update(data_dir, release_dir, signing_key, *, newer_only=False, move
             if move_artifacts:
                 copied_sources.append(source_file)
 
-        _write_release_files(stage, version, origin, artifacts, signing_key, enabled=True, source=source)
+        _write_release_files(stage_dir, version, origin, artifacts, signing_key, stage=stage, source=source)
+        # Initialize canary roster before exposing target directory so no window exists without allowlist entries.
+        if on_published is not None:
+            on_published(version, stage)
         # Readers see both immutable artifacts and their manifest in one rename.
-        stage.rename(target)
+        stage_dir.rename(target)
     except BaseException:
         # Restore any files moved out of release_dir if verification or publishing failed.
         for source_file, staged_file in moved_files:
@@ -199,7 +263,7 @@ def publish_update(data_dir, release_dir, signing_key, *, newer_only=False, move
                     pass
         raise
     finally:
-        _cleanup_flat_dir(stage)
+        _cleanup_flat_dir(stage_dir)
 
     if move_artifacts:
         for source_file in copied_sources:
@@ -212,6 +276,12 @@ def list_versions(updates_dir):
     if not updates_dir.is_dir():
         return []
     current_latest = latest_version(updates_dir)
+    canary_candidates = [
+        entry.name for entry in updates_dir.iterdir()
+        if entry.is_dir() and VERSION_PATTERN.fullmatch(entry.name) and (entry / MANIFEST_FILENAME).is_file()
+        and version_stage(entry) == STAGE_CANARY
+    ]
+    latest_canary = max(canary_candidates, key=_version_parts, default=None)
     items = []
     for entry in updates_dir.iterdir():
         if not entry.is_dir() or not VERSION_PATTERN.fullmatch(entry.name):
@@ -249,10 +319,13 @@ def list_versions(updates_dir):
                     source = meta["source"]
             except (OSError, ValueError):
                 pass
+        stage = version_stage(entry)
         items.append({
             "version": version,
-            "enabled": is_version_enabled(entry),
+            "stage": stage,
+            "enabled": stage == STAGE_RELEASED,
             "is_latest": version == current_latest,
+            "is_latest_canary": version == latest_canary,
             "published_at": published_at,
             "source": source,
             "server_url": payload.get("server_url", ""),
@@ -262,18 +335,31 @@ def list_versions(updates_dir):
     return items
 
 
-def set_version_enabled(updates_dir, version, enabled):
+def set_version_stage(updates_dir, version, stage):
+    if stage not in VALID_STAGES:
+        raise ValueError("Invalid version stage")
     if not VERSION_PATTERN.fullmatch(version):
         raise ValueError("Invalid version")
     target = updates_dir / version
     if not target.is_dir() or not (target / MANIFEST_FILENAME).is_file():
         return False
-    marker = target / DISABLED_MARKER
-    if enabled:
-        marker.unlink(missing_ok=True)
+    disabled_marker = target / DISABLED_MARKER
+    canary_marker = target / CANARY_MARKER
+    # Always write the stricter marker before removing the old one to prevent transient full exposure.
+    if stage == STAGE_DISABLED:
+        disabled_marker.write_text("disabled\n", encoding="ascii")
+        canary_marker.unlink(missing_ok=True)
+    elif stage == STAGE_CANARY:
+        canary_marker.write_text("canary\n", encoding="ascii")
+        disabled_marker.unlink(missing_ok=True)
     else:
-        marker.write_text("disabled\n", encoding="ascii")
+        disabled_marker.unlink(missing_ok=True)
+        canary_marker.unlink(missing_ok=True)
     return True
+
+
+def set_version_enabled(updates_dir, version, enabled):
+    return set_version_stage(updates_dir, version, STAGE_RELEASED if enabled else STAGE_DISABLED)
 
 
 def delete_version(updates_dir, version):
@@ -284,6 +370,7 @@ def delete_version(updates_dir, version):
         return False
     # Disable first so active downloads are blocked before removing the binary artifacts.
     (target / DISABLED_MARKER).write_text("disabled\n", encoding="ascii")
+    (target / CANARY_MARKER).unlink(missing_ok=True)
     for filename in artifact_names(version).values():
         (target / filename).unlink(missing_ok=True)
     (target / MANIFEST_FILENAME).unlink(missing_ok=True)
@@ -375,11 +462,11 @@ class UploadSessionManager:
             return
         cutoff = self.clock() - self.session_ttl
         with self._lock:
-            active_dirs = {session["stage"].name for session in self._sessions.values()}
+            active_dirs = {session["stage_dir"].name for session in self._sessions.values()}
             expired_ids = [sid for sid, session in self._sessions.items() if session["updated_at"] < cutoff]
             for sid in expired_ids:
                 expired = self._sessions.pop(sid)
-                _cleanup_flat_dir(expired["stage"])
+                _cleanup_flat_dir(expired["stage_dir"])
         for entry in self.updates_dir.iterdir():
             if entry.is_dir() and entry.name.startswith(UPLOAD_STAGE_PREFIX) and entry.name not in active_dirs:
                 try:
@@ -388,14 +475,17 @@ class UploadSessionManager:
                 except OSError:
                     pass
 
-    def create_session(self, manifest_record, *, enabled=True):
+    def create_session(self, manifest_record, *, stage=STAGE_CANARY, inherit_from="default"):
+        if stage not in VALID_STAGES:
+            raise ValueError(f"Unsupported stage: {stage}")
+        normalized_inherit = "default" if inherit_from is None else (str(inherit_from).strip() or "none")
         version, origin, names, artifacts = _validate_manifest_record(manifest_record, self.signing_key)
         self.updates_dir.mkdir(parents=True, exist_ok=True)
         self.prune_stale()
         if (self.updates_dir / version).exists():
             raise UpdateConflictError(f"Version {version} is already published")
         session_id = secrets.token_hex(16)
-        stage = Path(tempfile.mkdtemp(prefix=f"{UPLOAD_STAGE_PREFIX}{session_id[:8]}-", dir=self.updates_dir))
+        stage_dir = Path(tempfile.mkdtemp(prefix=f"{UPLOAD_STAGE_PREFIX}{session_id[:8]}-", dir=self.updates_dir))
         now = self.clock()
         with self._lock:
             self._sessions[session_id] = {
@@ -403,8 +493,9 @@ class UploadSessionManager:
                 "origin": origin,
                 "names": names,
                 "artifacts": artifacts,
-                "enabled": bool(enabled),
                 "stage": stage,
+                "inherit_from": normalized_inherit,
+                "stage_dir": stage_dir,
                 "received": {"installer": 0, "unpacked": 0},
                 "hashers": {"installer": hashlib.sha256(), "unpacked": hashlib.sha256()},
                 "updated_at": now,
@@ -413,6 +504,8 @@ class UploadSessionManager:
         return {
             "session_id": session_id,
             "version": version,
+            "stage": stage,
+            "inherit_from": normalized_inherit,
             "chunk_bytes": self.chunk_bytes,
             "files": {kind: {"filename": names[kind], **artifacts[kind]} for kind in names},
         }
@@ -430,7 +523,7 @@ class UploadSessionManager:
         session = self._get_session(session_id)
         expected_bytes = session["artifacts"][kind]["bytes"]
         filename = session["names"][kind]
-        target_file = session["stage"] / filename
+        target_file = session["stage_dir"] / filename
         with session["file_locks"][kind]:
             current = session["received"][kind]
             if offset != current:
@@ -445,13 +538,13 @@ class UploadSessionManager:
             session["updated_at"] = self.clock()
             return {"received": session["received"][kind], "expected": expected_bytes}
 
-    def complete_session(self, session_id):
+    def complete_session(self, session_id, *, on_published=None):
         with self._lock:
             session = self._sessions.get(session_id)
         if session is None:
             raise KeyError("Upload session not found or expired")
         version = session["version"]
-        stage = session["stage"]
+        stage_dir = session["stage_dir"]
         try:
             for kind, filename in session["names"].items():
                 expected = session["artifacts"][kind]
@@ -463,20 +556,23 @@ class UploadSessionManager:
             if target.exists():
                 raise UpdateConflictError(f"Version {version} is already published")
             _write_release_files(
-                stage,
+                stage_dir,
                 version,
                 session["origin"],
                 session["artifacts"],
                 self.signing_key,
-                enabled=session["enabled"],
+                stage=session["stage"],
                 source="web",
             )
-            stage.rename(target)
+            # Initialize canary roster before atomic rename exposes the release.
+            if on_published is not None:
+                on_published(version, session["stage"], session["inherit_from"])
+            stage_dir.rename(target)
         except BaseException:
             # Clean failed or conflicted session so disk space is reclaimed immediately.
             with self._lock:
                 self._sessions.pop(session_id, None)
-            _cleanup_flat_dir(stage)
+            _cleanup_flat_dir(stage_dir)
             raise
         with self._lock:
             self._sessions.pop(session_id, None)
@@ -487,7 +583,7 @@ class UploadSessionManager:
             session = self._sessions.pop(session_id, None)
         if session is None:
             return False
-        _cleanup_flat_dir(session["stage"])
+        _cleanup_flat_dir(session["stage_dir"])
         return True
 
     def abort_all(self):
@@ -495,17 +591,26 @@ class UploadSessionManager:
             sessions = list(self._sessions.values())
             self._sessions.clear()
         for session in sessions:
-            _cleanup_flat_dir(session["stage"])
+            _cleanup_flat_dir(session["stage_dir"])
 
 
-def watch_distribution(data_dir, release_dir, signing_key, stop):
+def watch_distribution(data_dir, release_dir, signing_key, stop, *, on_published=None):
     logger = logging.getLogger("uvicorn.error")
     manifest = release_dir / "manifest.json"
     last_error = None
     while not stop.is_set():
         try:
             version = (
-                publish_update(data_dir, release_dir, signing_key, newer_only=True, move_artifacts=True, source="distribution")
+                publish_update(
+                    data_dir,
+                    release_dir,
+                    signing_key,
+                    newer_only=True,
+                    move_artifacts=True,
+                    source="distribution",
+                    stage=STAGE_CANARY,
+                    on_published=on_published,
+                )
                 if manifest.is_file() else None
             )
         except (OSError, ValueError) as error:

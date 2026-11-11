@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from .app import Registry, create_app
 from .server_log import file_log_handler
-from .updates import publish_update
+from .updates import STAGE_CANARY, STAGE_RELEASED, publish_update
 
 
 def load_private_key(path):
@@ -53,6 +53,12 @@ def main(argv=None):
     publish.add_argument("--data-dir", type=Path, required=True)
     publish.add_argument("--release-dir", type=Path, required=True)
     publish.add_argument("--move", action="store_true", help="Move artifacts into updates instead of copying")
+    publish.add_argument("--full", action="store_true", help="Publish directly as full release instead of canary stage")
+    publish.add_argument(
+        "--inherit-from",
+        default="default",
+        help="Canary allowlist source when publishing in canary stage: default, none, or an existing version",
+    )
     setup_cmd = commands.add_parser("setup", help="Initialize environment, dependencies, and keys")
     setup_cmd.add_argument("--python", help="Path to Python 3.13 64-bit interpreter to use")
     setup_cmd.add_argument("--mirror", help="Mirror URL prefix for downloading standalone Python")
@@ -78,8 +84,24 @@ def main(argv=None):
             return
         if args.command == "publish-update":
             key = load_private_key(args.data_dir / "activation-private.pem")
-            version = publish_update(args.data_dir, args.release_dir, key, move_artifacts=args.move, source="cli")
-            print(f"Published Windows x64 update {version}")
+            stage = STAGE_RELEASED if args.full else STAGE_CANARY
+            updates_dir = args.data_dir / "updates"
+            registry = Registry(args.data_dir / "activation.sqlite3", key) if stage == STAGE_CANARY else None
+
+            def on_cli_published(version, published_stage):
+                if published_stage == STAGE_CANARY and registry is not None:
+                    registry.init_version_canary(version, args.inherit_from, updates_dir=updates_dir)
+
+            version = publish_update(
+                args.data_dir,
+                args.release_dir,
+                key,
+                move_artifacts=args.move,
+                source="cli",
+                stage=stage,
+                on_published=on_cli_published,
+            )
+            print(f"Published Windows x64 update {version} ({stage})")
             return
         if args.command == "setup":
             from .setup import run_setup

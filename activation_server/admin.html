@@ -115,9 +115,10 @@
     }
 
     main {
-      max-width: 86rem;
+      width: 100%;
+      max-width: min(116rem, 96vw);
       margin: 0 auto;
-      padding: clamp(1rem, 3vw, 2rem);
+      padding: clamp(1rem, 2vw, 1.75rem);
       display: flex;
       flex-direction: column;
       gap: 1.25rem;
@@ -461,13 +462,13 @@
       pointer-events: none;
     }
 
-    #client-search {
+    .search-box .input {
       width: 100%;
       padding-left: 2.15rem;
       padding-right: 2rem;
     }
 
-    #client-search::-webkit-search-cancel-button {
+    .search-box .input::-webkit-search-cancel-button {
       -webkit-appearance: none;
       appearance: none;
     }
@@ -527,6 +528,10 @@
       text-align: left;
     }
 
+    table.is-resized {
+      table-layout: fixed;
+    }
+
     thead th {
       position: sticky;
       top: 0;
@@ -541,14 +546,14 @@
     }
 
     thead th.th-plain {
-      padding: 0.65rem 0.85rem;
+      padding: 0.62rem 1rem 0.62rem 0.72rem;
     }
 
     .sort-btn {
       width: 100%;
       border: 0;
       background: transparent;
-      padding: 0.65rem 0.85rem;
+      padding: 0.62rem 1rem 0.62rem 0.72rem;
       display: inline-flex;
       align-items: center;
       gap: 0.3rem;
@@ -556,11 +561,53 @@
       color: inherit;
       font-weight: inherit;
       text-align: left;
+      min-width: 0;
+    }
+    .sort-btn > span:first-child {
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .sort-btn:hover { color: var(--text); background: var(--surface-hover); }
     .sort-btn[data-active="true"] { color: var(--accent); }
-    .sort-arrow { font-size: 0.78rem; opacity: 0.55; }
+    .sort-arrow { font-size: 0.78rem; opacity: 0.55; flex-shrink: 0; }
     .sort-btn[data-active="true"] .sort-arrow { opacity: 1; }
+
+    .col-resizer {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 8px;
+      cursor: col-resize;
+      z-index: 4;
+      user-select: none;
+      touch-action: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .col-resizer::after {
+      content: "";
+      width: 2px;
+      height: 55%;
+      border-radius: 1px;
+      background: var(--border-strong);
+      opacity: 0.35;
+      transition: opacity 120ms ease, background-color 120ms ease, height 120ms ease;
+    }
+    .col-resizer:hover::after,
+    .col-resizer.is-resizing::after {
+      opacity: 1;
+      height: 78%;
+      background: var(--accent);
+    }
+
+    body.is-col-resizing {
+      cursor: col-resize !important;
+      user-select: none !important;
+    }
+
+    .table-reset-cols[hidden] { display: none; }
 
     tbody tr {
       border-bottom: 1px solid var(--border);
@@ -571,15 +618,27 @@
     tbody tr[hidden] { display: none; }
 
     td {
-      padding: 0.68rem 0.85rem;
+      padding: 0.64rem 0.72rem;
       vertical-align: middle;
       font-variant-numeric: tabular-nums;
     }
 
-    td:not(:first-child):not(.computer-name) { white-space: nowrap; }
-    td.computer-name { min-width: 8rem; max-width: 15rem; overflow-wrap: anywhere; }
-
-    .uid-cell { min-width: 13rem; }
+    table:not(.is-resized) td { white-space: nowrap; }
+    table:not(.is-resized) .uid-cell { min-width: 12.5rem; }
+    table.is-resized th,
+    table.is-resized td {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    table.is-resized .uid-wrap,
+    table.is-resized .artifact-meta,
+    table.is-resized .version-actions,
+    table.is-resized .client-actions,
+    table.is-resized .version-cell {
+      max-width: 100%;
+      overflow: hidden;
+    }
 
     .uid-wrap {
       display: inline-flex;
@@ -604,6 +663,9 @@
       word-break: break-all;
       white-space: normal;
       max-width: 24rem;
+    }
+    table.is-resized .uid-code.is-expanded {
+      max-width: 100%;
     }
 
     .uid-copy {
@@ -885,9 +947,13 @@
     }
 
     .upload-progress {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      padding: 0.9rem 1rem;
       display: flex;
       flex-direction: column;
-      gap: 0.45rem;
+      gap: 0.55rem;
     }
     .upload-progress[hidden] { display: none; }
 
@@ -899,9 +965,20 @@
       font-size: 0.85rem;
       font-variant-numeric: tabular-nums;
     }
+    #progress-stage {
+      font-weight: 550;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #progress-stats, #progress-speed {
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
 
     .progress-track {
-      height: 0.55rem;
+      height: 0.6rem;
       border-radius: 999px;
       background: var(--border);
       overflow: hidden;
@@ -910,8 +987,9 @@
     .progress-fill {
       height: 100%;
       width: 0%;
-      background: var(--accent);
-      transition: width 120ms linear;
+      background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+      border-radius: 999px;
+      transition: width 100ms linear;
     }
 
     .dist-status {
@@ -981,9 +1059,10 @@
 
     .artifact-meta {
       display: inline-flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       align-items: center;
-      gap: 0.4rem;
+      gap: 0.35rem;
+      white-space: nowrap;
     }
 
     .artifact-size { font-size: 0.85rem; font-weight: 550; }
@@ -1002,8 +1081,231 @@
 
     .version-actions {
       display: inline-flex;
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 0.35rem;
+      white-space: nowrap;
+    }
+
+    .version-toggle-form {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .client-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex-wrap: nowrap;
+    }
+
+    .badge-canary { color: var(--warn); background: var(--warn-bg); }
+    .stat-dot.warn { background: var(--warn); }
+
+    .version-pill-canary {
+      color: var(--warn);
+      background: var(--warn-bg);
+      border-color: rgba(245, 158, 11, 0.35);
+    }
+
+    .btn-canary {
+      color: #ffffff;
+      background: var(--warn);
+      border-color: var(--warn);
+    }
+    .btn-canary:hover:not(:disabled) {
+      filter: brightness(0.92);
+    }
+
+    .btn-canary-outline {
+      color: var(--warn);
+      border-color: var(--warn-bg);
+      background: transparent;
+    }
+    .btn-canary-outline:hover:not(:disabled) {
+      background: var(--warn-bg);
+      border-color: var(--warn);
+    }
+
+    .upload-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+      align-items: flex-end;
+    }
+
+    .field-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .field-stack > span { font-weight: 550; }
+    .field-stack[hidden] { display: none; }
+
+    select.input, .input-sm {
+      padding: 0.42rem 0.65rem;
+      font-size: 0.85rem;
+      min-height: 2.05rem;
+    }
+
+    .canary-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) minmax(300px, 1.2fr);
+      gap: 1rem;
+      margin-bottom: 1.15rem;
+    }
+    @media (max-width: 860px) {
+      .canary-grid { grid-template-columns: 1fr; }
+    }
+
+    .canary-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.15rem;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+    }
+    .canary-box h3 {
+      margin: 0;
+      font-size: 0.96rem;
+      font-weight: 620;
+    }
+
+    .inline-form-col {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+    }
+
+    .inline-form-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .inline-form-row .input { flex: 1; min-width: 180px; }
+
+    .picker-list {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      max-height: 210px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .picker-item {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      padding: 0.45rem 0.65rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.83rem;
+      cursor: pointer;
+    }
+    .picker-item:last-child { border-bottom: 0; }
+    .picker-item:hover { background: var(--surface-hover); }
+    .picker-item.is-disabled { opacity: 0.6; cursor: default; }
+    .picker-meta {
+      display: flex;
+      flex-wrap: wrap;
       align-items: center;
       gap: 0.4rem;
+      flex: 1;
+      min-width: 0;
+    }
+    .picker-uid {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .picker-empty {
+      padding: 0.85rem;
+      text-align: center;
+      font-size: 0.84rem;
+      color: var(--text-muted);
+    }
+
+    .note-cell { max-width: 180px; word-break: break-word; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 950;
+      background: rgba(15, 23, 42, 0.56);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-backdrop[hidden] { display: none; }
+
+    .modal-dialog {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      width: min(1060px, 94vw);
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.95rem 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-title-wrap {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+    }
+    .modal-title-wrap h2 {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+
+    .modal-body {
+      padding: 1.1rem 1.25rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .modal-section {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      padding: 0.85rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .modal-section-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .modal-section h3 {
+      margin: 0;
+      font-size: 0.9rem;
+      font-weight: 620;
     }
 
     a.btn { text-decoration: none; }
@@ -1016,7 +1318,7 @@
   </style>
 </head>
 <body>
-  <main id="app-root" data-server-now="$server_now" data-existing-versions="$existing_versions_json">
+  <main id="app-root" data-server-now="$server_now" data-existing-versions="$existing_versions_json" data-default-canary-count="$default_canary_count">
     <header class="topbar">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">
@@ -1027,6 +1329,7 @@
         </div>
         <h1>PerfLens 激活管理</h1>
         <button type="button" id="latest-version-pill" class="version-pill version-pill-btn" title="点击切换到版本管理">当前发布版本 <strong>$latest_version</strong></button>
+        <span id="latest-canary-pill-wrap">$latest_canary_pill</span>
       </div>
       <div class="topbar-actions">
         <span id="sync-hint" class="sync-hint" aria-live="polite"></span>
@@ -1059,6 +1362,10 @@
       <button type="button" id="tab-btn-versions" class="view-tab" role="tab" data-tab="versions" aria-selected="false" aria-controls="tab-versions">
         <span>版本管理</span>
         <span id="tab-versions-count" class="tab-badge">$version_count</span>
+      </button>
+      <button type="button" id="tab-btn-canary" class="view-tab" role="tab" data-tab="canary" aria-selected="false" aria-controls="tab-canary">
+        <span>灰度名单</span>
+        <span id="tab-canary-count" class="tab-badge">$default_canary_count</span>
       </button>
     </nav>
 
@@ -1128,22 +1435,24 @@
               <button type="button" class="filter-pill" data-filter="disabled" aria-pressed="false">停发 (<span data-count-for="disabled">$disabled_count</span>)</button>
               <button type="button" class="filter-pill" data-filter="active" aria-pressed="false">授权有效 (<span data-count-for="active">$active_lease_count</span>)</button>
               <button type="button" class="filter-pill" data-filter="expired" aria-pressed="false">已过期 (<span data-count-for="expired">0</span>)</button>
+              <button type="button" class="filter-pill" data-filter="canary" aria-pressed="false">默认灰度 (<span data-count-for="canary">$canary_client_count</span>)</button>
             </div>
+            <button type="button" class="btn btn-sm btn-ghost table-reset-cols" data-reset-table="clients" hidden>重置列宽</button>
           </div>
         </div>
 
         <div class="table-wrap">
-          <table>
+          <table data-table-id="clients">
             <thead>
               <tr>
-                <th scope="col"><button type="button" class="sort-btn" data-sort="uid"><span>UID</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
-                <th scope="col"><button type="button" class="sort-btn" data-sort="computer"><span>计算机名</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
-                <th scope="col"><button type="button" class="sort-btn" data-sort="ip"><span>本机 IP</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
-                <th scope="col"><button type="button" class="sort-btn" data-sort="version"><span>客户端版本</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
-                <th scope="col"><button type="button" class="sort-btn" data-sort="firstSeen"><span>首次登记</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
-                <th scope="col"><button type="button" class="sort-btn" data-sort="lastSeen" data-active="true"><span>最近请求</span><span class="sort-arrow" aria-hidden="true">↓</span></button></th>
-                <th scope="col"><button type="button" class="sort-btn" data-sort="expiresAt"><span>最近签发到期</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
-                <th scope="col"><button type="button" class="sort-btn" data-sort="autoIssue"><span>自动签发</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="uid"><span>UID</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="computer"><span>计算机名</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="ip"><span>本机 IP</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="version"><span>客户端版本</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="firstSeen"><span>首次登记</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="lastSeen" data-active="true"><span>最近请求</span><span class="sort-arrow" aria-hidden="true">↓</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="expiresAt"><span>最近签发到期</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="autoIssue"><span>自动签发</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                 <th scope="col" class="th-plain">操作</th>
               </tr>
             </thead>
@@ -1161,18 +1470,22 @@
 
     <section id="tab-versions" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-versions" hidden>
       <section class="stats-grid" aria-label="版本概览统计">
-        <div class="stat-card stat-card-static">
+        <button type="button" class="stat-card" data-ver-stat-filter="all" aria-pressed="true">
           <span class="stat-label"><span>已发布版本</span><span class="stat-dot accent"></span></span>
           <strong class="stat-value" id="stat-ver-total">$version_count</strong>
-        </div>
-        <div class="stat-card stat-card-static">
-          <span class="stat-label"><span>已启用推送</span><span class="stat-dot ok"></span></span>
-          <strong class="stat-value" id="stat-ver-enabled">$enabled_version_count</strong>
-        </div>
-        <div class="stat-card stat-card-static">
+        </button>
+        <button type="button" class="stat-card" data-ver-stat-filter="canary" aria-pressed="false">
+          <span class="stat-label"><span>灰度测试中</span><span class="stat-dot warn"></span></span>
+          <strong class="stat-value" id="stat-ver-canary">$canary_version_count</strong>
+        </button>
+        <button type="button" class="stat-card" data-ver-stat-filter="released" aria-pressed="false">
+          <span class="stat-label"><span>全量推送启用</span><span class="stat-dot ok"></span></span>
+          <strong class="stat-value" id="stat-ver-released">$released_version_count</strong>
+        </button>
+        <button type="button" class="stat-card" data-ver-stat-filter="disabled" aria-pressed="false">
           <span class="stat-label"><span>已停用</span><span class="stat-dot off"></span></span>
           <strong class="stat-value" id="stat-ver-disabled">$disabled_version_count</strong>
-        </div>
+        </button>
       </section>
 
       <section id="upload-card" class="card upload-card" aria-labelledby="upload-title">
@@ -1216,10 +1529,23 @@
           <div id="upload-error" class="notice-box notice-error" hidden></div>
 
           <div class="upload-controls">
-            <label class="checkbox-label">
-              <input id="upload-enabled" type="checkbox" checked>
-              <span>上传后立即启用（推送给客户端）</span>
-            </label>
+            <div class="upload-options">
+              <label class="field-stack" for="upload-stage">
+                <span>发布阶段</span>
+                <select id="upload-stage" class="input input-sm">
+                  <option value="canary" selected>灰度测试（默认 · 仅推送给灰度名单）</option>
+                  <option value="released">全量发布（推送给全部客户端）</option>
+                  <option value="disabled">暂存停用（仅管理端可下载）</option>
+                </select>
+              </label>
+              <label id="upload-inherit-wrap" class="field-stack" for="upload-inherit-from">
+                <span>初始灰度名单</span>
+                <select id="upload-inherit-from" class="input input-sm">
+                  <option value="default" selected>默认灰度名单（$default_canary_count 台）</option>
+                  <option value="none">不继承（空白名单）</option>
+                </select>
+              </label>
+            </div>
             <div class="dropzone-actions">
               <button type="button" id="upload-clear-btn" class="btn btn-sm">清空选择</button>
               <button type="button" id="upload-start-btn" class="btn btn-primary" disabled>开始上传并发布</button>
@@ -1248,29 +1574,196 @@
         <div class="clients-header">
           <div class="clients-title-row">
             <h2 id="versions-heading">服务器已发布版本（<span id="versions-count">$version_count</span>）</h2>
-            <p class="muted-note"><code>/latest</code> 自动推送版本号最高的已启用版本；停用后公共接口一并屏蔽，管理页仍可鉴权下载。</p>
+            <p class="muted-note">灰度名单内的客户端优先匹配版本号最高的「全量启用」或「灰度测试」版本；其余客户端仅接收「全量启用」版本。点击表头可排序，拖动表头右边缘可调列宽。</p>
+          </div>
+          <div class="toolbar">
+            <div class="search-box">
+              <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+              </svg>
+              <input id="version-search" class="input" type="search" placeholder="搜索版本号 / 发布来源… (按 / 聚焦)" autocomplete="off">
+              <button type="button" id="version-search-clear" class="search-clear" title="清空搜索" aria-label="清空搜索" hidden>×</button>
+            </div>
+            <div class="filter-group" role="group" aria-label="按版本阶段筛选">
+              <button type="button" class="filter-pill" data-ver-filter="all" aria-pressed="true">全部 (<span data-ver-count-for="all">$version_count</span>)</button>
+              <button type="button" class="filter-pill" data-ver-filter="canary" aria-pressed="false">灰度测试 (<span data-ver-count-for="canary">$canary_version_count</span>)</button>
+              <button type="button" class="filter-pill" data-ver-filter="released" aria-pressed="false">全量启用 (<span data-ver-count-for="released">$released_version_count</span>)</button>
+              <button type="button" class="filter-pill" data-ver-filter="disabled" aria-pressed="false">已停用 (<span data-ver-count-for="disabled">$disabled_version_count</span>)</button>
+            </div>
+            <button type="button" class="btn btn-sm btn-ghost table-reset-cols" data-reset-table="versions" hidden>重置列宽</button>
           </div>
         </div>
         <div class="table-wrap">
-          <table>
+          <table data-table-id="versions">
             <thead>
               <tr>
-                <th scope="col" class="th-plain">版本与来源</th>
-                <th scope="col" class="th-plain">状态</th>
-                <th scope="col" class="th-plain">发布时间</th>
-                <th scope="col" class="th-plain">安装版（Setup）</th>
-                <th scope="col" class="th-plain">解包版（Unpacked）</th>
-                <th scope="col" class="th-plain">客户端分布</th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="versions" data-sort="version" data-active="true"><span>版本与来源</span><span class="sort-arrow" aria-hidden="true">↓</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="versions" data-sort="stage"><span>状态</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="versions" data-sort="publishedAt"><span>发布时间</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="versions" data-sort="installerBytes"><span>安装版（Setup）</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="versions" data-sort="unpackedBytes"><span>解包版（Unpacked）</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="versions" data-sort="clientCount"><span>客户端分布</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="versions" data-sort="canaryCount"><span>灰度名单</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                 <th scope="col" class="th-plain">操作</th>
               </tr>
             </thead>
             <tbody id="versions-tbody">$version_rows</tbody>
-            <tfoot><tr><td colspan="7" class="empty-cell">暂未发布任何在线更新版本。</td></tr></tfoot>
+            <tfoot><tr><td colspan="8" class="empty-cell">暂未发布任何在线更新版本。</td></tr></tfoot>
           </table>
+        </div>
+        <div id="version-filter-empty" class="filter-empty" hidden>
+          <p>没有符合当前搜索或筛选条件的版本。</p>
+          <button type="button" id="clear-version-filters-btn" class="btn btn-sm">重置搜索与筛选</button>
+        </div>
+      </section>
+    </section>
+
+    <section id="tab-canary" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-canary" hidden>
+      <div class="canary-grid">
+        <section class="canary-box" aria-labelledby="default-canary-add-title">
+          <h3 id="default-canary-add-title">手动添加设备到默认灰度名单</h3>
+          <p class="muted-note">支持提前导入尚未首次激活的设备 UID；新发布「灰度测试」版本时将默认复制此名单。</p>
+          <form id="default-canary-add-form" class="inline-form-col">
+            <label class="field-stack" for="default-canary-uid">
+              <span>客户端 UID（64 位十六进制）</span>
+              <input id="default-canary-uid" class="input mono" type="text" placeholder="输入 64 位小写或大写十六进制 UID…" autocomplete="off" required>
+            </label>
+            <label class="field-stack" for="default-canary-note">
+              <span>设备备注（可选）</span>
+              <input id="default-canary-note" class="input" type="text" maxlength="200" placeholder="例如：QA-测试机 / 研发笔记本">
+            </label>
+            <div class="inline-form-row">
+              <button type="submit" id="default-canary-add-btn" class="btn btn-primary">加入默认灰度</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="canary-box" aria-labelledby="default-picker-title">
+          <h3 id="default-picker-title">从已登记客户端批量挑选</h3>
+          <div class="inline-form-row">
+            <input id="default-picker-search" class="input input-sm" type="search" placeholder="筛选计算机名 / IP / UID…" autocomplete="off">
+            <button type="button" id="default-picker-add-btn" class="btn btn-sm btn-canary" disabled>批量加入所选 (0)</button>
+          </div>
+          <div id="default-picker-list" class="picker-list" role="region" aria-label="已登记客户端候选列表"></div>
+        </section>
+      </div>
+
+      <section class="card clients-card" aria-labelledby="default-canary-heading">
+        <div class="clients-header">
+          <div class="clients-title-row">
+            <h2 id="default-canary-heading">默认灰度名单（<span id="default-canary-count">$default_canary_count</span>）</h2>
+            <p class="muted-note">各版本仍保留独立灰度名单；在某版本名单弹窗中可将版本名单反向同步覆盖到此处。点击表头可排序，点击 UID 可展开完整值。</p>
+          </div>
+          <div class="toolbar">
+            <div class="search-box">
+              <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+              </svg>
+              <input id="default-canary-search" class="input" type="search" placeholder="搜索 UID / 设备名 / IP / 备注… (按 / 聚焦)" autocomplete="off">
+              <button type="button" id="default-canary-search-clear" class="search-clear" title="清空搜索" aria-label="清空搜索" hidden>×</button>
+            </div>
+            <button type="button" class="btn btn-sm btn-ghost table-reset-cols" data-reset-table="default-canary" hidden>重置列宽</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table data-table-id="default-canary">
+            <thead>
+              <tr>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-canary" data-sort="uid"><span>UID</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-canary" data-sort="computer"><span>关联设备</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-canary" data-sort="note"><span>备注</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-canary" data-sort="addedAt" data-active="true"><span>加入时间</span><span class="sort-arrow" aria-hidden="true">↓</span></button></th>
+                <th scope="col" class="th-plain">操作</th>
+              </tr>
+            </thead>
+            <tbody id="default-canary-tbody">$default_canary_rows</tbody>
+            <tfoot><tr><td colspan="5" class="empty-cell">默认灰度名单为空，请从上方手动输入 UID 或从已登记客户端中挑选。</td></tr></tfoot>
+          </table>
+        </div>
+        <div id="default-canary-filter-empty" class="filter-empty" hidden>
+          <p>没有符合当前搜索条件的默认灰度设备。</p>
+          <button type="button" id="clear-default-canary-filter-btn" class="btn btn-sm">清空搜索</button>
         </div>
       </section>
     </section>
   </main>
+
+  <div id="canary-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="canary-modal-title" hidden>
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <div class="modal-title-wrap">
+          <h2 id="canary-modal-title">管理灰度名单：<code id="canary-modal-version">—</code></h2>
+          <span id="canary-modal-stage-badge" class="badge badge-canary">灰度测试</span>
+        </div>
+        <button type="button" id="canary-modal-close" class="btn btn-sm" aria-label="关闭弹窗">关闭</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-section">
+          <div class="modal-section-head">
+            <h3>快捷继承与默认名单同步</h3>
+            <button type="button" id="modal-save-default-btn" class="btn btn-sm btn-canary-outline">将当前版本名单设为默认名单</button>
+          </div>
+          <div class="inline-form-row">
+            <select id="modal-inherit-source" class="input input-sm">
+              <option value="default">默认灰度名单</option>
+            </select>
+            <select id="modal-inherit-mode" class="input input-sm">
+              <option value="replace">替换当前名单</option>
+              <option value="merge">合并追加到当前名单</option>
+            </select>
+            <button type="button" id="modal-inherit-btn" class="btn btn-sm btn-primary">执行导入</button>
+          </div>
+        </div>
+
+        <div class="modal-section">
+          <h3>添加设备到此版本灰度名单</h3>
+          <form id="modal-add-uid-form" class="inline-form-row">
+            <input id="modal-add-uid-input" class="input input-sm mono" type="text" placeholder="输入 64 位十六进制 UID…" autocomplete="off">
+            <button type="submit" id="modal-add-uid-btn" class="btn btn-sm btn-primary">添加 UID</button>
+          </form>
+          <div class="inline-form-row">
+            <input id="modal-picker-search" class="input input-sm" type="search" placeholder="筛选已登记客户端…" autocomplete="off">
+            <button type="button" id="modal-picker-add-btn" class="btn btn-sm btn-canary" disabled>批量加入所选 (0)</button>
+          </div>
+          <div id="modal-picker-list" class="picker-list"></div>
+        </div>
+
+        <div class="modal-section">
+          <div class="modal-section-head">
+            <h3>当前版本灰度设备（<span id="modal-members-count">0</span>）</h3>
+            <button type="button" class="btn btn-sm btn-ghost table-reset-cols" data-reset-table="modal-members" hidden>重置列宽</button>
+          </div>
+          <div class="toolbar">
+            <div class="search-box">
+              <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+              </svg>
+              <input id="modal-members-search" class="input input-sm" type="search" placeholder="搜索 UID / 设备名 / 备注…" autocomplete="off">
+              <button type="button" id="modal-members-search-clear" class="search-clear" title="清空搜索" aria-label="清空搜索" hidden>×</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table data-table-id="modal-members">
+              <thead>
+                <tr>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="modal-members" data-sort="uid"><span>UID</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="modal-members" data-sort="device"><span>关联设备 / 备注</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="modal-members" data-sort="addedAt" data-active="true"><span>加入时间</span><span class="sort-arrow" aria-hidden="true">↓</span></button></th>
+                  <th scope="col" class="th-plain">操作</th>
+                </tr>
+              </thead>
+              <tbody id="modal-members-tbody"></tbody>
+              <tfoot><tr><td colspan="4" class="empty-cell">此版本暂无灰度设备；若处于灰度测试阶段，目前没有任何客户端会收到此版本。</td></tr></tfoot>
+            </table>
+          </div>
+          <div id="modal-members-filter-empty" class="filter-empty" hidden>
+            <p>没有符合当前搜索条件的灰度设备。</p>
+            <button type="button" id="clear-modal-members-filter-btn" class="btn btn-sm">清空搜索</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="true"></div>
 
@@ -1288,12 +1781,19 @@
 
       var searchInput = document.getElementById("client-search");
       var searchClear = document.getElementById("search-clear");
-      var filterBtns = document.querySelectorAll(".filter-pill");
+      var filterBtns = document.querySelectorAll(".filter-pill[data-filter]");
       var statBtns = document.querySelectorAll(".stat-card[data-stat-filter]");
-      var sortBtns = document.querySelectorAll(".sort-btn");
+      var sortBtns = document.querySelectorAll(".sort-btn[data-sort-table]");
       var tbody = document.getElementById("clients-tbody");
       var filterEmpty = document.getElementById("filter-empty");
       var clearFiltersBtn = document.getElementById("clear-filters-btn");
+
+      var versionSearchInput = document.getElementById("version-search");
+      var versionSearchClear = document.getElementById("version-search-clear");
+      var versionFilterBtns = document.querySelectorAll(".filter-pill[data-ver-filter]");
+      var versionStatBtns = document.querySelectorAll(".stat-card[data-ver-stat-filter]");
+      var versionFilterEmpty = document.getElementById("version-filter-empty");
+      var clearVersionFiltersBtn = document.getElementById("clear-version-filters-btn");
 
       var tzToggle = document.getElementById("tz-toggle");
       var tzLabel = document.getElementById("tz-label");
@@ -1305,13 +1805,48 @@
       var toastContainer = document.getElementById("toast-container");
 
       var latestVersionPill = document.getElementById("latest-version-pill");
+      var latestCanaryPillWrap = document.getElementById("latest-canary-pill-wrap");
       var tabBtns = document.querySelectorAll(".view-tab");
       var tabPanels = {
         clients: document.getElementById("tab-clients"),
-        versions: document.getElementById("tab-versions")
+        versions: document.getElementById("tab-versions"),
+        canary: document.getElementById("tab-canary")
       };
       var versionsTbody = document.getElementById("versions-tbody");
       var distributionPanel = document.getElementById("distribution-panel");
+
+      var defaultCanaryAddForm = document.getElementById("default-canary-add-form");
+      var defaultCanaryUidInput = document.getElementById("default-canary-uid");
+      var defaultCanaryNoteInput = document.getElementById("default-canary-note");
+      var defaultPickerSearch = document.getElementById("default-picker-search");
+      var defaultPickerAddBtn = document.getElementById("default-picker-add-btn");
+      var defaultPickerList = document.getElementById("default-picker-list");
+      var defaultCanarySearch = document.getElementById("default-canary-search");
+      var defaultCanarySearchClear = document.getElementById("default-canary-search-clear");
+      var defaultCanaryTbody = document.getElementById("default-canary-tbody");
+      var defaultCanaryFilterEmpty = document.getElementById("default-canary-filter-empty");
+      var clearDefaultCanaryFilterBtn = document.getElementById("clear-default-canary-filter-btn");
+
+      var canaryModal = document.getElementById("canary-modal");
+      var canaryModalVersion = document.getElementById("canary-modal-version");
+      var canaryModalStageBadge = document.getElementById("canary-modal-stage-badge");
+      var canaryModalClose = document.getElementById("canary-modal-close");
+      var modalSaveDefaultBtn = document.getElementById("modal-save-default-btn");
+      var modalInheritSource = document.getElementById("modal-inherit-source");
+      var modalInheritMode = document.getElementById("modal-inherit-mode");
+      var modalInheritBtn = document.getElementById("modal-inherit-btn");
+      var modalAddUidForm = document.getElementById("modal-add-uid-form");
+      var modalAddUidInput = document.getElementById("modal-add-uid-input");
+      var modalPickerSearch = document.getElementById("modal-picker-search");
+      var modalPickerAddBtn = document.getElementById("modal-picker-add-btn");
+      var modalPickerList = document.getElementById("modal-picker-list");
+      var modalMembersCount = document.getElementById("modal-members-count");
+      var modalMembersSearch = document.getElementById("modal-members-search");
+      var modalMembersSearchClear = document.getElementById("modal-members-search-clear");
+      var modalMembersTbody = document.getElementById("modal-members-tbody");
+      var modalMembersFilterEmpty = document.getElementById("modal-members-filter-empty");
+      var clearModalMembersFilterBtn = document.getElementById("clear-modal-members-filter-btn");
+      var tableResetBtns = document.querySelectorAll(".table-reset-cols[data-reset-table]");
 
       var dropzone = document.getElementById("upload-dropzone");
       var pickDirBtn = document.getElementById("pick-dir-btn");
@@ -1325,7 +1860,9 @@
       var previewUnpacked = document.getElementById("preview-unpacked");
       var uploadWarn = document.getElementById("upload-warn");
       var uploadError = document.getElementById("upload-error");
-      var uploadEnabledCheckbox = document.getElementById("upload-enabled");
+      var uploadStageSelect = document.getElementById("upload-stage");
+      var uploadInheritWrap = document.getElementById("upload-inherit-wrap");
+      var uploadInheritSelect = document.getElementById("upload-inherit-from");
       var uploadClearBtn = document.getElementById("upload-clear-btn");
       var uploadStartBtn = document.getElementById("upload-start-btn");
       var uploadProgress = document.getElementById("upload-progress");
@@ -1335,17 +1872,53 @@
       var progressSpeed = document.getElementById("progress-speed");
       var uploadCancelBtn = document.getElementById("upload-cancel-btn");
 
+      function resolveInitialTab() {
+        if (window.location.hash === "#versions") return "versions";
+        if (window.location.hash === "#canary") return "canary";
+        var saved = storageGet("perflens-admin-tab", "clients");
+        return (saved === "versions" || saved === "canary") ? saved : "clients";
+      }
+
+      var DESC_DEFAULT_SORT_KEYS = {
+        firstSeen: true,
+        lastSeen: true,
+        expiresAt: true,
+        autoIssue: true,
+        version: true,
+        publishedAt: true,
+        installerBytes: true,
+        unpackedBytes: true,
+        clientCount: true,
+        canaryCount: true,
+        addedAt: true
+      };
+
       var state = {
         serverNow: parseInt(appRoot.getAttribute("data-server-now"), 10) || Math.floor(Date.now() / 1000),
         loadedAtMs: Date.now(),
         tzMode: storageGet("perflens-admin-tz", "local") === "utc" ? "utc" : "local",
-        activeTab: (window.location.hash === "#versions" || storageGet("perflens-admin-tab", "clients") === "versions") ? "versions" : "clients",
+        activeTab: resolveInitialTab(),
         search: "",
         filter: "all",
-        sortKey: "lastSeen",
-        sortDir: "desc",
+        versionSearch: "",
+        versionFilter: "all",
+        canarySearch: "",
+        modalSearch: "",
+        sorts: {
+          clients: { key: "lastSeen", dir: "desc" },
+          versions: { key: "version", dir: "desc" },
+          "default-canary": { key: "addedAt", dir: "desc" },
+          "modal-members": { key: "addedAt", dir: "desc" }
+        },
         expandedUids: new Set(),
         refreshing: false
+      };
+
+      var modalState = {
+        version: null,
+        stage: "canary",
+        members: [],
+        busy: false
       };
 
       var uploadState = {
@@ -1554,9 +2127,10 @@
         cell.innerHTML = '<span class="ts-main">' + mainText + "</span>" + subHtml;
       }
 
-      function enhanceRows() {
+      function enhanceUidTable(tableBody) {
+        if (!tableBody) return;
         var now = currentServerNow();
-        var rows = tbody.querySelectorAll("tr");
+        var rows = tableBody.querySelectorAll("tr");
         for (var i = 0; i < rows.length; i++) {
           var row = rows[i];
           var uid = row.getAttribute("data-uid") || "";
@@ -1593,6 +2167,42 @@
             renderTimestampCell(tsCells[j], now);
           }
         }
+      }
+
+      function enhanceRows() {
+        enhanceUidTable(tbody);
+        enhanceUidTable(defaultCanaryTbody);
+        enhanceUidTable(modalMembersTbody);
+      }
+
+      var NUMERIC_SORT_ATTRS = {
+        firstSeen: "data-first-seen",
+        lastSeen: "data-last-seen",
+        expiresAt: "data-expires-at",
+        autoIssue: "data-auto-issue",
+        publishedAt: "data-published-at",
+        installerBytes: "data-installer-bytes",
+        unpackedBytes: "data-unpacked-bytes",
+        clientCount: "data-client-count",
+        canaryCount: "data-canary-count",
+        addedAt: "data-added-at"
+      };
+
+      var TEXT_SORT_ATTRS = {
+        computer: "data-computer",
+        note: "data-note",
+        device: "data-device"
+      };
+
+      function getVersionStageRank(row) {
+        var stage = row.getAttribute("data-stage") || "";
+        if (stage === "released") {
+          return row.getAttribute("data-is-latest") === "1" ? 0 : 1;
+        }
+        if (stage === "canary") {
+          return row.getAttribute("data-is-latest-canary") === "1" ? 2 : 3;
+        }
+        return 4;
       }
 
       function parseIpTuple(ip) {
@@ -1656,10 +2266,8 @@
         var factor = dir === "asc" ? 1 : -1;
         var res = 0;
 
-        if (key === "firstSeen" || key === "lastSeen" || key === "expiresAt" || key === "autoIssue") {
-          var attr = key === "firstSeen" ? "data-first-seen" :
-            key === "lastSeen" ? "data-last-seen" :
-            key === "expiresAt" ? "data-expires-at" : "data-auto-issue";
+        if (NUMERIC_SORT_ATTRS[key]) {
+          var attr = NUMERIC_SORT_ATTRS[key];
           var rawA = rowA.getAttribute(attr);
           var rawB = rowB.getAttribute(attr);
           var numA = rawA === "" || rawA === null ? null : Number(rawA);
@@ -1686,13 +2294,16 @@
           else if (!vA) return 1;
           else if (!vB) return -1;
           else res = compareVersions(vA, vB);
-        } else if (key === "computer") {
-          var cA = rowA.getAttribute("data-computer") || "";
-          var cB = rowB.getAttribute("data-computer") || "";
-          if (!cA && !cB) res = 0;
-          else if (!cA) return 1;
-          else if (!cB) return -1;
-          else res = cA.localeCompare(cB, "zh-CN");
+        } else if (key === "stage") {
+          res = getVersionStageRank(rowA) - getVersionStageRank(rowB);
+        } else if (TEXT_SORT_ATTRS[key]) {
+          var txtAttr = TEXT_SORT_ATTRS[key];
+          var sA = rowA.getAttribute(txtAttr) || "";
+          var sB = rowB.getAttribute(txtAttr) || "";
+          if (!sA && !sB) res = 0;
+          else if (!sA) return 1;
+          else if (!sB) return -1;
+          else res = sA.localeCompare(sB, "zh-CN");
         } else {
           var uA = rowA.getAttribute("data-uid") || "";
           var uB = rowB.getAttribute("data-uid") || "";
@@ -1700,22 +2311,62 @@
         }
 
         if (res === 0) {
-          res = (rowA.getAttribute("data-uid") || "").localeCompare(rowB.getAttribute("data-uid") || "");
+          var uidTie = (rowA.getAttribute("data-uid") || "").localeCompare(rowB.getAttribute("data-uid") || "");
+          if (uidTie !== 0) {
+            res = uidTie;
+          } else {
+            res = compareVersions(rowA.getAttribute("data-version") || "", rowB.getAttribute("data-version") || "");
+          }
         }
         return res * factor;
       }
 
+      function updateTableSortUI(tableId, sortState) {
+        var btns = document.querySelectorAll('.sort-btn[data-sort-table="' + tableId + '"]');
+        for (var sb = 0; sb < btns.length; sb++) {
+          var sortBtn = btns[sb];
+          var active = sortBtn.getAttribute("data-sort") === sortState.key;
+          sortBtn.setAttribute("data-active", active ? "true" : "false");
+          var arrow = sortBtn.querySelector(".sort-arrow");
+          if (arrow) {
+            arrow.textContent = active ? (sortState.dir === "asc" ? "↑" : "↓") : "↕";
+          }
+          var th = sortBtn.closest("th");
+          if (th) {
+            if (active) th.setAttribute("aria-sort", sortState.dir === "asc" ? "ascending" : "descending");
+            else th.removeAttribute("aria-sort");
+          }
+        }
+      }
+
+      function sortTableBody(tableBody, tableId) {
+        if (!tableBody) return [];
+        var sortState = state.sorts[tableId];
+        var rows = Array.prototype.slice.call(tableBody.querySelectorAll("tr"));
+        if (sortState) {
+          rows.sort(function (a, b) {
+            return compareRows(a, b, sortState.key, sortState.dir);
+          });
+          for (var j = 0; j < rows.length; j++) {
+            tableBody.appendChild(rows[j]);
+          }
+          updateTableSortUI(tableId, sortState);
+        }
+        return rows;
+      }
+
       function applyView() {
         var now = currentServerNow();
-        var rows = Array.prototype.slice.call(tbody.querySelectorAll("tr"));
+        var rows = sortTableBody(tbody, "clients");
         var query = state.search.trim().toLowerCase();
 
-        var counts = { all: rows.length, enabled: 0, disabled: 0, active: 0, expired: 0 };
+        var counts = { all: rows.length, enabled: 0, disabled: 0, active: 0, expired: 0, canary: 0 };
         var visibleCount = 0;
 
         for (var i = 0; i < rows.length; i++) {
           var row = rows[i];
           var autoIssue = row.getAttribute("data-auto-issue") === "1";
+          var inCanary = row.getAttribute("data-canary") === "1";
           var expRaw = row.getAttribute("data-expires-at");
           var exp = expRaw ? parseInt(expRaw, 10) : null;
           var isActive = exp !== null && exp > now;
@@ -1724,12 +2375,14 @@
           else counts.disabled++;
           if (isActive) counts.active++;
           else counts.expired++;
+          if (inCanary) counts.canary++;
 
           var filterMatch = state.filter === "all" ||
             (state.filter === "enabled" && autoIssue) ||
             (state.filter === "disabled" && !autoIssue) ||
             (state.filter === "active" && isActive) ||
-            (state.filter === "expired" && !isActive);
+            (state.filter === "expired" && !isActive) ||
+            (state.filter === "canary" && inCanary);
 
           var searchMatch = true;
           if (query) {
@@ -1745,13 +2398,6 @@
           var shown = filterMatch && searchMatch;
           row.hidden = !shown;
           if (shown) visibleCount++;
-        }
-
-        rows.sort(function (a, b) {
-          return compareRows(a, b, state.sortKey, state.sortDir);
-        });
-        for (var j = 0; j < rows.length; j++) {
-          tbody.appendChild(rows[j]);
         }
 
         document.getElementById("clients-count").textContent = String(counts.all);
@@ -1778,23 +2424,123 @@
           statBtns[s].setAttribute("aria-pressed", String(sVal === state.filter));
         }
 
-        for (var sb = 0; sb < sortBtns.length; sb++) {
-          var sortBtn = sortBtns[sb];
-          var active = sortBtn.getAttribute("data-sort") === state.sortKey;
-          sortBtn.setAttribute("data-active", active ? "true" : "false");
-          var arrow = sortBtn.querySelector(".sort-arrow");
-          if (arrow) {
-            arrow.textContent = active ? (state.sortDir === "asc" ? "↑" : "↓") : "↕";
-          }
-          var th = sortBtn.closest("th");
-          if (th) {
-            if (active) th.setAttribute("aria-sort", state.sortDir === "asc" ? "ascending" : "descending");
-            else th.removeAttribute("aria-sort");
-          }
-        }
-
         searchClear.hidden = state.search.length === 0;
         filterEmpty.hidden = !(rows.length > 0 && visibleCount === 0);
+      }
+
+      function applyVersionsView() {
+        var rows = sortTableBody(versionsTbody, "versions");
+        var query = state.versionSearch.trim().toLowerCase();
+        var counts = { all: rows.length, canary: 0, released: 0, disabled: 0 };
+        var visibleCount = 0;
+
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var stage = row.getAttribute("data-stage") || "disabled";
+          if (stage in counts) counts[stage]++;
+
+          var filterMatch = state.versionFilter === "all" || stage === state.versionFilter;
+          var searchMatch = true;
+          if (query) {
+            var srcEl = row.querySelector(".source-tag");
+            var badgeEl = row.querySelector(".badge");
+            var haystack = (
+              (row.getAttribute("data-version") || "") + " " +
+              (row.getAttribute("data-source") || "") + " " +
+              (srcEl ? srcEl.textContent : "") + " " +
+              (badgeEl ? badgeEl.textContent : "")
+            ).toLowerCase();
+            searchMatch = haystack.indexOf(query) !== -1;
+          }
+
+          var shown = filterMatch && searchMatch;
+          row.hidden = !shown;
+          if (shown) visibleCount++;
+        }
+
+        var countNodes = {
+          "versions-count": counts.all,
+          "stat-ver-total": counts.all,
+          "stat-ver-canary": counts.canary,
+          "stat-ver-released": counts.released,
+          "stat-ver-disabled": counts.disabled
+        };
+        for (var nodeId in countNodes) {
+          var el = document.getElementById(nodeId);
+          if (el) el.textContent = String(countNodes[nodeId]);
+        }
+
+        var badges = document.querySelectorAll("[data-ver-count-for]");
+        for (var b = 0; b < badges.length; b++) {
+          var bKey = badges[b].getAttribute("data-ver-count-for");
+          if (bKey in counts) badges[b].textContent = String(counts[bKey]);
+        }
+
+        for (var fb = 0; fb < versionFilterBtns.length; fb++) {
+          var vVal = versionFilterBtns[fb].getAttribute("data-ver-filter");
+          versionFilterBtns[fb].setAttribute("aria-pressed", String(vVal === state.versionFilter));
+        }
+
+        for (var sb = 0; sb < versionStatBtns.length; sb++) {
+          var vsVal = versionStatBtns[sb].getAttribute("data-ver-stat-filter");
+          versionStatBtns[sb].setAttribute("aria-pressed", String(vsVal === state.versionFilter));
+        }
+
+        if (versionSearchClear) versionSearchClear.hidden = state.versionSearch.length === 0;
+        if (versionFilterEmpty) versionFilterEmpty.hidden = !(rows.length > 0 && visibleCount === 0);
+      }
+
+      function applyDefaultCanaryView() {
+        var rows = sortTableBody(defaultCanaryTbody, "default-canary");
+        var query = state.canarySearch.trim().toLowerCase();
+        var visibleCount = 0;
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var shown = true;
+          if (query) {
+            var devText = row.cells && row.cells[1] ? row.cells[1].textContent : "";
+            var hay = (
+              (row.getAttribute("data-uid") || "") + " " +
+              (row.getAttribute("data-computer") || "") + " " +
+              (row.getAttribute("data-ip") || "") + " " +
+              (row.getAttribute("data-note") || "") + " " +
+              devText
+            ).toLowerCase();
+            shown = hay.indexOf(query) !== -1;
+          }
+          row.hidden = !shown;
+          if (shown) visibleCount++;
+        }
+        if (defaultCanarySearchClear) defaultCanarySearchClear.hidden = state.canarySearch.length === 0;
+        if (defaultCanaryFilterEmpty) defaultCanaryFilterEmpty.hidden = !(rows.length > 0 && visibleCount === 0);
+      }
+
+      function applyModalMembersView() {
+        var rows = sortTableBody(modalMembersTbody, "modal-members");
+        var query = state.modalSearch.trim().toLowerCase();
+        var visibleCount = 0;
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var shown = true;
+          if (query) {
+            var hay = (
+              (row.getAttribute("data-uid") || "") + " " +
+              (row.getAttribute("data-device") || "")
+            ).toLowerCase();
+            shown = hay.indexOf(query) !== -1;
+          }
+          row.hidden = !shown;
+          if (shown) visibleCount++;
+        }
+        if (modalMembersSearchClear) modalMembersSearchClear.hidden = state.modalSearch.length === 0;
+        if (modalMembersFilterEmpty) modalMembersFilterEmpty.hidden = !(rows.length > 0 && visibleCount === 0);
+      }
+
+      function applyTableById(tableId) {
+        if (tableId === "clients") applyView();
+        else if (tableId === "versions") applyVersionsView();
+        else if (tableId === "default-canary") applyDefaultCanaryView();
+        else if (tableId === "modal-members") applyModalMembersView();
       }
 
       function syncFromHtml(htmlText, options) {
@@ -1803,9 +2549,11 @@
         var nextTbody = doc.getElementById("clients-tbody");
         var nextPolicyForm = doc.getElementById("policy-form");
         var nextVersion = doc.querySelector("#latest-version-pill strong");
+        var nextCanaryWrap = doc.getElementById("latest-canary-pill-wrap");
         var nextVersionsTbody = doc.getElementById("versions-tbody");
         var nextDistributionPanel = doc.getElementById("distribution-panel");
-        if (!nextRoot || !nextTbody || !nextPolicyForm || !nextVersionsTbody || !nextDistributionPanel) {
+        var nextDefaultCanaryTbody = doc.getElementById("default-canary-tbody");
+        if (!nextRoot || !nextTbody || !nextPolicyForm || !nextVersionsTbody || !nextDistributionPanel || !nextDefaultCanaryTbody) {
           throw new Error("页面响应格式异常");
         }
 
@@ -1817,6 +2565,10 @@
         var nextExisting = nextRoot.getAttribute("data-existing-versions");
         if (nextExisting !== null) {
           appRoot.setAttribute("data-existing-versions", nextExisting);
+        }
+        var nextDefaultCount = nextRoot.getAttribute("data-default-canary-count");
+        if (nextDefaultCount !== null) {
+          appRoot.setAttribute("data-default-canary-count", nextDefaultCount);
         }
 
         var nextCsrf = nextPolicyForm.querySelector('input[name="csrf"]');
@@ -1839,14 +2591,20 @@
         if (nextVersion && currVersion) {
           currVersion.textContent = nextVersion.textContent;
         }
+        if (nextCanaryWrap && latestCanaryPillWrap) {
+          latestCanaryPillWrap.innerHTML = nextCanaryWrap.innerHTML;
+        }
 
         var syncTextIds = [
           "tab-clients-count",
           "tab-versions-count",
+          "tab-canary-count",
           "stat-ver-total",
-          "stat-ver-enabled",
+          "stat-ver-canary",
+          "stat-ver-released",
           "stat-ver-disabled",
-          "versions-count"
+          "versions-count",
+          "default-canary-count"
         ];
         for (var idx = 0; idx < syncTextIds.length; idx++) {
           var id = syncTextIds[idx];
@@ -1860,20 +2618,33 @@
         tbody.innerHTML = nextTbody.innerHTML;
         versionsTbody.innerHTML = nextVersionsTbody.innerHTML;
         distributionPanel.innerHTML = nextDistributionPanel.innerHTML;
+        defaultCanaryTbody.innerHTML = nextDefaultCanaryTbody.innerHTML;
         enhanceRows();
         enhanceVersionRows();
         applyView();
+        applyVersionsView();
+        applyDefaultCanaryView();
+        refreshVisibleTableLayouts();
+        syncUploadInheritOptions();
+        renderDefaultClientPicker();
+        if (modalState.version && !canaryModal.hidden) {
+          renderModalClientPicker();
+        }
         revalidateSelection();
         syncHint.textContent = "同步于 " + formatAbsolute(Math.floor(Date.now() / 1000), "local").slice(11);
       }
 
+      function parseErrorDetailText(body, fallback) {
+        try {
+          var data = JSON.parse(body);
+          if (data && data.detail) return String(data.detail);
+        } catch (e) {}
+        return fallback;
+      }
+
       function extractErrorDetail(res, fallback) {
         return res.text().then(function (body) {
-          try {
-            var data = JSON.parse(body);
-            if (data && data.detail) return String(data.detail);
-          } catch (e) {}
-          return fallback;
+          return parseErrorDetailText(body, fallback);
         }).catch(function () {
           return fallback;
         });
@@ -1983,8 +2754,198 @@
         return val.toFixed(2) + " GiB";
       }
 
+      var COL_WIDTH_STORAGE_KEY = "perflens-admin-col-widths";
+      var MIN_COL_WIDTH = 64;
+
+      function loadColWidthsMap() {
+        var raw = storageGet(COL_WIDTH_STORAGE_KEY, "");
+        if (!raw) return {};
+        try {
+          var parsed = JSON.parse(raw);
+          return (parsed && typeof parsed === "object" && !Array.isArray(parsed)) ? parsed : {};
+        } catch (e) {
+          return {};
+        }
+      }
+
+      function saveColWidthsMap(map) {
+        storageSet(COL_WIDTH_STORAGE_KEY, JSON.stringify(map));
+      }
+
+      function setResetColsVisible(tableId, visible) {
+        var btn = document.querySelector('.table-reset-cols[data-reset-table="' + tableId + '"]');
+        if (btn) btn.hidden = !visible;
+      }
+
+      function ensureTableColgroup(table, thCount) {
+        var colgroup = table.querySelector("colgroup");
+        if (!colgroup || colgroup.children.length !== thCount) {
+          if (colgroup) colgroup.remove();
+          colgroup = document.createElement("colgroup");
+          for (var i = 0; i < thCount; i++) {
+            colgroup.appendChild(document.createElement("col"));
+          }
+          table.insertBefore(colgroup, table.firstChild);
+        }
+        return colgroup;
+      }
+
+      function applyColumnWidths(table, widths) {
+        var ths = table.querySelectorAll("thead th");
+        var tableId = table.getAttribute("data-table-id") || "";
+        var colgroup = ensureTableColgroup(table, ths.length);
+        var cols = colgroup.children;
+        if (!Array.isArray(widths) || widths.length !== ths.length) {
+          table.classList.remove("is-resized");
+          table.style.width = "";
+          for (var i = 0; i < cols.length; i++) {
+            cols[i].style.width = "";
+          }
+          setResetColsVisible(tableId, false);
+          return;
+        }
+        var total = 0;
+        for (var j = 0; j < cols.length; j++) {
+          var w = Math.max(MIN_COL_WIDTH, Math.round(Number(widths[j]) || MIN_COL_WIDTH));
+          cols[j].style.width = w + "px";
+          total += w;
+        }
+        table.classList.add("is-resized");
+        table.style.width = total + "px";
+        setResetColsVisible(tableId, true);
+      }
+
+      function resetTableColumnWidths(tableId) {
+        var table = document.querySelector('table[data-table-id="' + tableId + '"]');
+        var map = loadColWidthsMap();
+        if (tableId in map) {
+          delete map[tableId];
+          saveColWidthsMap(map);
+        }
+        if (table) applyColumnWidths(table, null);
+      }
+
+      function refreshTableLayout(tableId) {
+        var table = document.querySelector('table[data-table-id="' + tableId + '"]');
+        if (!table) return;
+        var map = loadColWidthsMap();
+        if (Array.isArray(map[tableId])) {
+          applyColumnWidths(table, map[tableId]);
+        }
+      }
+
+      function refreshVisibleTableLayouts() {
+        var tables = document.querySelectorAll("table[data-table-id]");
+        var map = loadColWidthsMap();
+        for (var i = 0; i < tables.length; i++) {
+          var tableId = tables[i].getAttribute("data-table-id");
+          if (tableId && Array.isArray(map[tableId])) {
+            applyColumnWidths(tables[i], map[tableId]);
+          }
+        }
+      }
+
+      function startColumnResize(table, thIndex, startEvent) {
+        startEvent.preventDefault();
+        startEvent.stopPropagation();
+
+        var tableId = table.getAttribute("data-table-id") || "";
+        var ths = table.querySelectorAll("thead th");
+        if (!ths.length || thIndex < 0 || thIndex >= ths.length) return;
+
+        var startWidths = [];
+        for (var i = 0; i < ths.length; i++) {
+          startWidths.push(Math.max(MIN_COL_WIDTH, Math.round(ths[i].getBoundingClientRect().width)));
+        }
+        applyColumnWidths(table, startWidths);
+
+        var startX = startEvent.clientX;
+        var baseWidth = startWidths[thIndex];
+        var activeResizer = ths[thIndex].querySelector(".col-resizer");
+        if (activeResizer) activeResizer.classList.add("is-resizing");
+        document.body.classList.add("is-col-resizing");
+
+        var latestWidths = startWidths.slice();
+
+        function onMove(ev) {
+          var delta = ev.clientX - startX;
+          latestWidths[thIndex] = Math.max(MIN_COL_WIDTH, Math.round(baseWidth + delta));
+          applyColumnWidths(table, latestWidths);
+        }
+
+        function onUp() {
+          document.removeEventListener("pointermove", onMove);
+          document.removeEventListener("pointerup", onUp);
+          document.removeEventListener("pointercancel", onUp);
+          if (activeResizer) activeResizer.classList.remove("is-resizing");
+          document.body.classList.remove("is-col-resizing");
+          if (tableId) {
+            var map = loadColWidthsMap();
+            map[tableId] = latestWidths;
+            saveColWidthsMap(map);
+          }
+        }
+
+        document.addEventListener("pointermove", onMove);
+        document.addEventListener("pointerup", onUp);
+        document.addEventListener("pointercancel", onUp);
+      }
+
+      function initResizableTables() {
+        var tables = document.querySelectorAll("table[data-table-id]");
+        var map = loadColWidthsMap();
+        for (var i = 0; i < tables.length; i++) {
+          (function (table) {
+            var tableId = table.getAttribute("data-table-id") || "";
+            var ths = table.querySelectorAll("thead th");
+            ensureTableColgroup(table, ths.length);
+
+            for (var j = 0; j < ths.length; j++) {
+              (function (th, index) {
+                if (th.querySelector(".col-resizer")) return;
+                var handle = document.createElement("span");
+                handle.className = "col-resizer";
+                handle.setAttribute("role", "separator");
+                handle.setAttribute("aria-orientation", "vertical");
+                handle.setAttribute("title", "拖动调整列宽，双击恢复默认列宽");
+                handle.addEventListener("pointerdown", function (e) {
+                  if (e.button !== 0 && e.pointerType === "mouse") return;
+                  startColumnResize(table, index, e);
+                });
+                handle.addEventListener("mousedown", function (e) {
+                  e.stopPropagation();
+                });
+                handle.addEventListener("click", function (e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                });
+                handle.addEventListener("dblclick", function (e) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (tableId) resetTableColumnWidths(tableId);
+                });
+                th.appendChild(handle);
+              })(ths[j], j);
+            }
+
+            if (tableId && Array.isArray(map[tableId])) {
+              applyColumnWidths(table, map[tableId]);
+            } else {
+              setResetColsVisible(tableId, false);
+            }
+          })(tables[i]);
+        }
+
+        for (var r = 0; r < tableResetBtns.length; r++) {
+          tableResetBtns[r].addEventListener("click", function () {
+            var targetTableId = this.getAttribute("data-reset-table");
+            if (targetTableId) resetTableColumnWidths(targetTableId);
+          });
+        }
+      }
+
       function setActiveTab(tab) {
-        var nextTab = tab === "versions" ? "versions" : "clients";
+        var nextTab = (tab === "versions" || tab === "canary") ? tab : "clients";
         state.activeTab = nextTab;
         storageSet("perflens-admin-tab", nextTab);
         for (var i = 0; i < tabBtns.length; i++) {
@@ -1993,9 +2954,189 @@
         }
         tabPanels.clients.hidden = nextTab !== "clients";
         tabPanels.versions.hidden = nextTab !== "versions";
+        tabPanels.canary.hidden = nextTab !== "canary";
+        refreshTableLayout(nextTab === "canary" ? "default-canary" : nextTab);
         if (window.history && window.history.replaceState) {
           window.history.replaceState(null, "", "#" + nextTab);
         }
+      }
+
+      function normalizeClientUidInput(raw) {
+        var trimmed = (raw || "").trim().toLowerCase();
+        if (trimmed.length !== 64 || /[^0-9a-f]/.test(trimmed)) return null;
+        return trimmed;
+      }
+
+      function sendAdminJson(url, payload, method) {
+        var verb = (method || "POST").toUpperCase();
+        var options = {
+          method: verb,
+          headers: {
+            "X-CSRF-Token": currentCsrf()
+          },
+          credentials: "same-origin",
+          cache: "no-store"
+        };
+        // GET/HEAD requests must omit body per the Fetch specification.
+        if (verb !== "GET" && verb !== "HEAD") {
+          options.headers["Content-Type"] = "application/json";
+          options.body = JSON.stringify(payload || {});
+        }
+        return fetch(url, options).then(function (res) {
+          if (!res.ok) {
+            return extractErrorDetail(res, "操作失败（HTTP " + res.status + "）").then(function (detail) {
+              throw new Error(detail);
+            });
+          }
+          return res.json();
+        });
+      }
+
+      function getRegisteredClients() {
+        var rows = tbody.querySelectorAll("tr");
+        var list = [];
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var uid = row.getAttribute("data-uid") || "";
+          if (!uid) continue;
+          list.push({
+            uid: uid,
+            computer: row.getAttribute("data-computer") || "",
+            ip: row.getAttribute("data-ip") || "",
+            version: row.getAttribute("data-version") || "",
+            inDefault: row.getAttribute("data-canary") === "1"
+          });
+        }
+        return list;
+      }
+
+      function renderClientPicker(containerEl, searchValue, excludedUids, addBtnEl) {
+        if (!containerEl || !addBtnEl) return;
+        var prevChecked = new Set();
+        var checkedInputs = containerEl.querySelectorAll('input[type="checkbox"]:checked');
+        for (var c = 0; c < checkedInputs.length; c++) {
+          prevChecked.add(checkedInputs[c].value);
+        }
+        var clients = getRegisteredClients();
+        var query = (searchValue || "").trim().toLowerCase();
+        containerEl.innerHTML = "";
+        var visibleCount = 0;
+        for (var i = 0; i < clients.length; i++) {
+          var item = clients[i];
+          if (query) {
+            var haystack = (item.uid + " " + item.computer + " " + item.ip + " " + item.version).toLowerCase();
+            if (haystack.indexOf(query) === -1) continue;
+          }
+          visibleCount++;
+          var already = excludedUids.has(item.uid);
+          var label = document.createElement("label");
+          label.className = "picker-item" + (already ? " is-disabled" : "");
+          var cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.value = item.uid;
+          cb.disabled = already;
+          cb.checked = !already && prevChecked.has(item.uid);
+          var meta = document.createElement("div");
+          meta.className = "picker-meta";
+          var titleSpan = document.createElement("span");
+          titleSpan.textContent = item.computer || "未上报设备名";
+          var uidSpan = document.createElement("span");
+          uidSpan.className = "picker-uid";
+          uidSpan.textContent = shortUid(item.uid);
+          meta.appendChild(titleSpan);
+          meta.appendChild(uidSpan);
+          if (item.ip) {
+            var ipSpan = document.createElement("span");
+            ipSpan.className = "muted-note";
+            ipSpan.textContent = item.ip;
+            meta.appendChild(ipSpan);
+          }
+          if (already) {
+            var tag = document.createElement("span");
+            tag.className = "badge badge-canary";
+            tag.textContent = "已在名单";
+            meta.appendChild(tag);
+          }
+          label.appendChild(cb);
+          label.appendChild(meta);
+          containerEl.appendChild(label);
+        }
+        if (visibleCount === 0) {
+          var empty = document.createElement("div");
+          empty.className = "picker-empty";
+          empty.textContent = clients.length === 0 ? "暂无已登记客户端" : "没有匹配的已登记客户端";
+          containerEl.appendChild(empty);
+        }
+        updatePickerAddButton(containerEl, addBtnEl);
+      }
+
+      function getSelectedPickerUids(containerEl) {
+        var inputs = containerEl.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)');
+        var uids = [];
+        for (var i = 0; i < inputs.length; i++) {
+          uids.push(inputs[i].value);
+        }
+        return uids;
+      }
+
+      function updatePickerAddButton(containerEl, addBtnEl) {
+        var selectedCount = getSelectedPickerUids(containerEl).length;
+        addBtnEl.disabled = selectedCount === 0;
+        addBtnEl.textContent = "批量加入所选 (" + selectedCount + ")";
+      }
+
+      function getDefaultCanaryUidSet() {
+        var set = new Set();
+        var rows = defaultCanaryTbody.querySelectorAll("tr");
+        for (var i = 0; i < rows.length; i++) {
+          var uid = rows[i].getAttribute("data-uid");
+          if (uid) set.add(uid);
+        }
+        return set;
+      }
+
+      function renderDefaultClientPicker() {
+        renderClientPicker(defaultPickerList, defaultPickerSearch.value, getDefaultCanaryUidSet(), defaultPickerAddBtn);
+      }
+
+      function populateInheritOptions(selectEl, versions, options) {
+        var prev = selectEl.value || "default";
+        selectEl.innerHTML = "";
+        var defaultCount = appRoot.getAttribute("data-default-canary-count") || "0";
+        var optDefault = document.createElement("option");
+        optDefault.value = "default";
+        optDefault.textContent = "默认灰度名单（" + defaultCount + " 台）";
+        selectEl.appendChild(optDefault);
+        if (options && options.includeNone) {
+          var optNone = document.createElement("option");
+          optNone.value = "none";
+          optNone.textContent = options.noneLabel || "不继承（空白名单）";
+          selectEl.appendChild(optNone);
+        }
+        for (var i = 0; i < versions.length; i++) {
+          var ver = versions[i];
+          var opt = document.createElement("option");
+          opt.value = ver;
+          opt.textContent = "继承版本 " + ver + " 名单";
+          selectEl.appendChild(opt);
+        }
+        var found = false;
+        for (var j = 0; j < selectEl.options.length; j++) {
+          if (selectEl.options[j].value === prev) {
+            found = true;
+            break;
+          }
+        }
+        selectEl.value = found ? prev : "default";
+      }
+
+      function syncUploadInheritOptions() {
+        var isCanary = uploadStageSelect.value === "canary";
+        uploadInheritWrap.hidden = !isCanary;
+        populateInheritOptions(uploadInheritSelect, getExistingVersions(), {
+          includeNone: true,
+          noneLabel: "不继承（空白名单）"
+        });
       }
 
       function enhanceVersionRows() {
@@ -2220,7 +3361,79 @@
         return Promise.resolve(Array.prototype.slice.call(dataTransfer.files || []));
       }
 
-      function uploadArtifactChunks(sessionId, kind, file, chunkBytes, signal, onChunkDone) {
+      function createAbortError() {
+        var err = new Error("已取消上传");
+        err.name = "AbortError";
+        return err;
+      }
+
+      function sendChunkWithProgress(url, chunkBlob, offset, signal, onChunkProgress) {
+        if (signal && signal.aborted) {
+          return Promise.reject(createAbortError());
+        }
+        return new Promise(function (resolve, reject) {
+          var xhr = new XMLHttpRequest();
+          var settled = false;
+
+          function cleanup() {
+            if (signal) {
+              signal.removeEventListener("abort", onAbortSignal);
+            }
+          }
+
+          function finishReject(err) {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            reject(err);
+          }
+
+          function onAbortSignal() {
+            xhr.abort();
+          }
+
+          if (signal) {
+            signal.addEventListener("abort", onAbortSignal, { once: true });
+          }
+
+          xhr.open("POST", url, true);
+          xhr.setRequestHeader("Content-Type", "application/octet-stream");
+          xhr.setRequestHeader("X-CSRF-Token", currentCsrf());
+          xhr.setRequestHeader("X-Chunk-Offset", String(offset));
+
+          xhr.upload.addEventListener("progress", function (ev) {
+            if (ev.lengthComputable && typeof onChunkProgress === "function") {
+              onChunkProgress(Math.min(chunkBlob.size, ev.loaded));
+            }
+          });
+
+          xhr.addEventListener("load", function () {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else {
+              reject(new Error(parseErrorDetailText(xhr.responseText, "上传分片失败（HTTP " + xhr.status + "）")));
+            }
+          });
+
+          xhr.addEventListener("error", function () {
+            finishReject(new Error("网络传输失败，请检查连接后重试"));
+          });
+          xhr.addEventListener("timeout", function () {
+            finishReject(new Error("上传超时，请检查网络后重试"));
+          });
+          xhr.addEventListener("abort", function () {
+            finishReject(createAbortError());
+          });
+
+          xhr.send(chunkBlob);
+        });
+      }
+
+      function uploadArtifactChunks(sessionId, kind, file, chunkBytes, signal, onArtifactProgress) {
+        var url = "/admin/updates/upload/" + encodeURIComponent(sessionId) + "/" + encodeURIComponent(kind);
         var offset = 0;
         function sendNext() {
           if (offset >= file.size) {
@@ -2228,31 +3441,69 @@
           }
           var end = Math.min(file.size, offset + chunkBytes);
           var slice = file.slice(offset, end);
-          return fetch("/admin/updates/upload/" + encodeURIComponent(sessionId) + "/" + encodeURIComponent(kind), {
-            method: "POST",
-            body: slice,
-            headers: {
-              "Content-Type": "application/octet-stream",
-              "X-CSRF-Token": currentCsrf(),
-              "X-Chunk-Offset": String(offset)
-            },
-            credentials: "same-origin",
-            signal: signal
-          }).then(function (res) {
-            if (!res.ok) {
-              return extractErrorDetail(res, "上传分片失败（HTTP " + res.status + "）").then(function (detail) {
-                throw new Error(detail);
-              });
-            }
-            return res.json();
+          return sendChunkWithProgress(url, slice, offset, signal, function (chunkLoaded) {
+            onArtifactProgress(offset + chunkLoaded);
           }).then(function () {
-            var sentNow = end - offset;
             offset = end;
-            onChunkDone(sentNow);
+            onArtifactProgress(offset);
             return sendNext();
           });
         }
         return sendNext();
+      }
+
+      function formatEtaSeconds(sec) {
+        if (!Number.isFinite(sec) || sec <= 0) return "即将完成";
+        if (sec < 1) return "不足 1 秒";
+        var totalSec = Math.ceil(sec);
+        if (totalSec < 60) return totalSec + " 秒";
+        if (totalSec < 3600) {
+          var mins = Math.floor(totalSec / 60);
+          var remSec = totalSec % 60;
+          return mins + " 分 " + pad2(remSec) + " 秒";
+        }
+        return formatSpan(totalSec);
+      }
+
+      function createUploadSpeedTracker(totalBytes) {
+        var startedMs = performance.now();
+        var samples = [{ ts: startedMs, bytes: 0 }];
+        var latestBytes = 0;
+        return {
+          record: function (bytesNow) {
+            var now = performance.now();
+            if (bytesNow > latestBytes) {
+              latestBytes = Math.min(totalBytes, bytesNow);
+            }
+            var last = samples[samples.length - 1];
+            if ((now - last.ts) >= 180 || latestBytes >= totalBytes) {
+              samples.push({ ts: now, bytes: latestBytes });
+            }
+            while (samples.length > 2 && (now - samples[1].ts) >= 2500) {
+              samples.shift();
+            }
+          },
+          snapshot: function () {
+            var now = performance.now();
+            var elapsedSec = Math.max(0.001, (now - startedMs) / 1000);
+            var avgBps = (elapsedSec >= 0.1 && latestBytes > 0) ? (latestBytes / elapsedSec) : 0;
+            var anchor = samples[0];
+            var winSec = (now - anchor.ts) / 1000;
+            var instantBps = (winSec >= 0.2 && latestBytes >= anchor.bytes)
+              ? ((latestBytes - anchor.bytes) / winSec)
+              : avgBps;
+            var etaRate = instantBps > 0 ? instantBps : avgBps;
+            var remaining = Math.max(0, totalBytes - latestBytes);
+            var etaSec = (etaRate > 0 && remaining > 0) ? (remaining / etaRate) : null;
+            return {
+              bytes: latestBytes,
+              elapsedSec: elapsedSec,
+              avgBps: avgBps,
+              instantBps: instantBps,
+              etaSec: etaSec
+            };
+          }
+        };
       }
 
       function setUploadBusy(busy) {
@@ -2260,7 +3511,8 @@
         pickDirBtn.disabled = busy;
         pickFilesBtn.disabled = busy;
         uploadClearBtn.disabled = busy;
-        uploadEnabledCheckbox.disabled = busy;
+        uploadStageSelect.disabled = busy;
+        uploadInheritSelect.disabled = busy;
         uploadStartBtn.disabled = busy || !uploadState.selection || !uploadError.hidden;
         uploadProgress.hidden = !busy;
       }
@@ -2271,27 +3523,68 @@
         var controller = new AbortController();
         uploadState.abortController = controller;
         uploadState.sessionId = null;
+        progressFill.style.width = "0%";
         setUploadBusy(true);
 
         var totalBytes = sel.installer.size + sel.unpacked.size;
         var uploadedBytes = 0;
-        var startedMs = performance.now();
+        var currentStageText = "正在向服务器校验清单…";
+        var tracker = createUploadSpeedTracker(totalBytes);
+        var tickerId = null;
 
-        function updateProgressUI(stageText) {
+        function renderTransferStats(customSpeedText) {
+          var snap = tracker.snapshot();
           var pct = totalBytes > 0 ? Math.min(100, Math.round((uploadedBytes * 1000) / totalBytes) / 10) : 0;
-          var elapsedSec = Math.max(0.1, (performance.now() - startedMs) / 1000);
-          var rate = formatBytesClient(uploadedBytes / elapsedSec) + "/s";
-          progressStage.textContent = stageText;
-          progressStats.textContent = pct.toFixed(1) + "% (" + formatBytesClient(uploadedBytes) + " / " + formatBytesClient(totalBytes) + ")";
+          progressStage.textContent = currentStageText;
+          progressStats.textContent = pct.toFixed(1) + "% · " + formatBytesClient(uploadedBytes) + " / " + formatBytesClient(totalBytes);
           progressFill.style.width = pct + "%";
-          progressSpeed.textContent = "平均速度：" + rate;
+          if (customSpeedText) {
+            progressSpeed.textContent = customSpeedText;
+          } else if (snap.elapsedSec < 0.15 || uploadedBytes <= 0) {
+            progressSpeed.textContent = "正在连接并准备传输分片…";
+          } else {
+            var parts = [
+              "实时速度：" + formatBytesClient(snap.instantBps) + "/s",
+              "平均速度：" + formatBytesClient(snap.avgBps) + "/s"
+            ];
+            if (snap.etaSec !== null) {
+              parts.push("预计剩余：" + formatEtaSeconds(snap.etaSec));
+            } else if (uploadedBytes >= totalBytes) {
+              parts.push("分片已传完");
+            }
+            progressSpeed.textContent = parts.join(" · ");
+          }
         }
 
-        updateProgressUI("正在向服务器校验清单…");
+        function stopTicker() {
+          if (tickerId !== null) {
+            clearInterval(tickerId);
+            tickerId = null;
+          }
+        }
+
+        function updateProgress(stageText, artifactOffset, artifactLoaded) {
+          currentStageText = stageText;
+          var candidate = artifactOffset + artifactLoaded;
+          if (candidate > uploadedBytes) {
+            uploadedBytes = Math.min(totalBytes, candidate);
+            tracker.record(uploadedBytes);
+          }
+          renderTransferStats(null);
+        }
+
+        renderTransferStats("正在初始化上传会话…");
+
+        var requestedStage = uploadStageSelect.value || "canary";
+        var requestedInherit = requestedStage === "canary" ? (uploadInheritSelect.value || "default") : "none";
 
         fetch("/admin/updates/upload/init", {
           method: "POST",
-          body: JSON.stringify({ manifest: sel.manifest, enabled: uploadEnabledCheckbox.checked }),
+          body: JSON.stringify({
+            manifest: sel.manifest,
+            stage: requestedStage,
+            inherit_from: requestedInherit
+          }),
           headers: {
             "Content-Type": "application/json",
             "X-CSRF-Token": currentCsrf()
@@ -2308,19 +3601,25 @@
         }).then(function (session) {
           uploadState.sessionId = session.session_id;
           var chunkBytes = session.chunk_bytes || (8 * 1024 * 1024);
-          updateProgressUI("正在上传安装版：" + sel.installer.name);
-          return uploadArtifactChunks(session.session_id, "installer", sel.installer, chunkBytes, controller.signal, function (delta) {
-            uploadedBytes += delta;
-            updateProgressUI("正在上传安装版：" + sel.installer.name);
+          tickerId = setInterval(function () {
+            renderTransferStats(null);
+          }, 250);
+          updateProgress("正在上传安装版 (1/2)：" + sel.installer.name, 0, 0);
+          return uploadArtifactChunks(session.session_id, "installer", sel.installer, chunkBytes, controller.signal, function (loaded) {
+            updateProgress("正在上传安装版 (1/2)：" + sel.installer.name, 0, loaded);
           }).then(function () {
-            updateProgressUI("正在上传解包版：" + sel.unpacked.name);
-            return uploadArtifactChunks(session.session_id, "unpacked", sel.unpacked, chunkBytes, controller.signal, function (delta) {
-              uploadedBytes += delta;
-              updateProgressUI("正在上传解包版：" + sel.unpacked.name);
+            var baseOffset = sel.installer.size;
+            updateProgress("正在上传解包版 (2/2)：" + sel.unpacked.name, baseOffset, 0);
+            return uploadArtifactChunks(session.session_id, "unpacked", sel.unpacked, chunkBytes, controller.signal, function (loaded) {
+              updateProgress("正在上传解包版 (2/2)：" + sel.unpacked.name, baseOffset, loaded);
             });
           }).then(function () {
-            updateProgressUI("正在校验 SHA-256 并签发更新清单…");
-            progressSpeed.textContent = "校验签名中，请稍候…";
+            stopTicker();
+            uploadedBytes = totalBytes;
+            tracker.record(totalBytes);
+            currentStageText = "正在校验 SHA-256 并签发更新清单…";
+            var avgRate = formatBytesClient(tracker.snapshot().avgBps) + "/s";
+            renderTransferStats("签名校验与发布中，请稍候…（平均速度：" + avgRate + "）");
             return fetch("/admin/updates/upload/" + encodeURIComponent(session.session_id) + "/complete", {
               method: "POST",
               headers: { "X-CSRF-Token": currentCsrf() },
@@ -2336,12 +3635,16 @@
           }
           return res.json();
         }).then(function (result) {
+          stopTicker();
           uploadState.sessionId = null;
           setUploadBusy(false);
           clearUploadSelection();
-          showToast("版本 " + result.version + " 上传并发布成功", "ok");
+          var stageLabelMap = { canary: "（已进入灰度测试）", released: "（已全量发布）", disabled: "（已暂存停用）" };
+          var stageNote = stageLabelMap[result.stage] || "";
+          showToast("版本 " + result.version + " 上传成功" + stageNote, "ok");
           return refreshAdmin(true);
         }).catch(function (err) {
+          stopTicker();
           var sid = uploadState.sessionId;
           uploadState.sessionId = null;
           if (sid) {
@@ -2358,6 +3661,7 @@
             showToast(err && err.message ? err.message : "上传失败", "error");
           }
         }).finally(function () {
+          stopTicker();
           uploadState.abortController = null;
         });
       }
@@ -2407,23 +3711,47 @@
         });
       });
 
-      searchInput.addEventListener("input", function () {
-        state.search = searchInput.value;
+      function bindSearchControl(inputEl, clearEl, resetBtnEl, onUpdate) {
+        if (inputEl) {
+          inputEl.addEventListener("input", function () {
+            onUpdate(inputEl.value, false);
+          });
+        }
+        if (clearEl && inputEl) {
+          clearEl.addEventListener("click", function () {
+            inputEl.value = "";
+            onUpdate("", false);
+            inputEl.focus();
+          });
+        }
+        if (resetBtnEl && inputEl) {
+          resetBtnEl.addEventListener("click", function () {
+            inputEl.value = "";
+            onUpdate("", true);
+          });
+        }
+      }
+
+      bindSearchControl(searchInput, searchClear, clearFiltersBtn, function (val, resetFilter) {
+        state.search = val;
+        if (resetFilter) state.filter = "all";
         applyView();
       });
 
-      searchClear.addEventListener("click", function () {
-        state.search = "";
-        searchInput.value = "";
-        applyView();
-        searchInput.focus();
+      bindSearchControl(versionSearchInput, versionSearchClear, clearVersionFiltersBtn, function (val, resetFilter) {
+        state.versionSearch = val;
+        if (resetFilter) state.versionFilter = "all";
+        applyVersionsView();
       });
 
-      clearFiltersBtn.addEventListener("click", function () {
-        state.search = "";
-        state.filter = "all";
-        searchInput.value = "";
-        applyView();
+      bindSearchControl(defaultCanarySearch, defaultCanarySearchClear, clearDefaultCanaryFilterBtn, function (val) {
+        state.canarySearch = val;
+        applyDefaultCanaryView();
+      });
+
+      bindSearchControl(modalMembersSearch, modalMembersSearchClear, clearModalMembersFilterBtn, function (val) {
+        state.modalSearch = val;
+        applyModalMembersView();
       });
 
       for (var fb = 0; fb < filterBtns.length; fb++) {
@@ -2441,20 +3769,38 @@
         });
       }
 
-      for (var st = 0; st < sortBtns.length; st++) {
-        sortBtns[st].addEventListener("click", function () {
-          var key = this.getAttribute("data-sort");
-          if (state.sortKey === key) {
-            state.sortDir = state.sortDir === "asc" ? "desc" : "asc";
-          } else {
-            state.sortKey = key;
-            state.sortDir = (key === "firstSeen" || key === "lastSeen" || key === "expiresAt" || key === "autoIssue") ? "desc" : "asc";
-          }
-          applyView();
+      for (var vfb = 0; vfb < versionFilterBtns.length; vfb++) {
+        versionFilterBtns[vfb].addEventListener("click", function () {
+          state.versionFilter = this.getAttribute("data-ver-filter") || "all";
+          applyVersionsView();
         });
       }
 
-      tbody.addEventListener("click", function (e) {
+      for (var vsc = 0; vsc < versionStatBtns.length; vsc++) {
+        versionStatBtns[vsc].addEventListener("click", function () {
+          var target = this.getAttribute("data-ver-stat-filter") || "all";
+          state.versionFilter = (target !== "all" && state.versionFilter === target) ? "all" : target;
+          applyVersionsView();
+        });
+      }
+
+      for (var st = 0; st < sortBtns.length; st++) {
+        sortBtns[st].addEventListener("click", function () {
+          var tableId = this.getAttribute("data-sort-table");
+          var key = this.getAttribute("data-sort");
+          var sortState = tableId ? state.sorts[tableId] : null;
+          if (!tableId || !key || !sortState) return;
+          if (sortState.key === key) {
+            sortState.dir = sortState.dir === "asc" ? "desc" : "asc";
+          } else {
+            sortState.key = key;
+            sortState.dir = DESC_DEFAULT_SORT_KEYS[key] ? "desc" : "asc";
+          }
+          applyTableById(tableId);
+        });
+      }
+
+      function handleUidTableClick(e) {
         var codeEl = e.target.closest(".uid-code");
         if (codeEl) {
           var row = codeEl.closest("tr");
@@ -2464,14 +3810,14 @@
             else state.expandedUids.add(uid);
             enhanceRows();
           }
-          return;
+          return true;
         }
 
         var copyBtn = e.target.closest(".uid-copy");
         if (copyBtn) {
           var targetRow = copyBtn.closest("tr");
           var fullUid = targetRow ? targetRow.getAttribute("data-uid") : "";
-          if (!fullUid) return;
+          if (!fullUid) return true;
           copyText(fullUid).then(function () {
             copyBtn.classList.add("is-copied");
             copyBtn.innerHTML = createCopyIcon(true);
@@ -2485,7 +3831,199 @@
           }).catch(function () {
             showToast("复制失败，请手动选中 UID 复制", "error");
           });
+          return true;
         }
+        return false;
+      }
+
+      function renderModalClientPicker() {
+        var memberSet = new Set();
+        for (var i = 0; i < modalState.members.length; i++) {
+          memberSet.add(modalState.members[i].uid);
+        }
+        renderClientPicker(modalPickerList, modalPickerSearch.value, memberSet, modalPickerAddBtn);
+      }
+
+      function renderCanaryModalPayload(payload) {
+        modalState.version = payload.version;
+        modalState.stage = payload.stage;
+        modalState.members = Array.isArray(payload.members) ? payload.members : [];
+        canaryModalVersion.textContent = payload.version;
+        if (payload.stage === "released") {
+          canaryModalStageBadge.className = "badge badge-ok";
+          canaryModalStageBadge.textContent = "全量启用";
+        } else if (payload.stage === "canary") {
+          canaryModalStageBadge.className = "badge badge-canary";
+          canaryModalStageBadge.textContent = "灰度测试";
+        } else {
+          canaryModalStageBadge.className = "badge badge-off";
+          canaryModalStageBadge.textContent = "已停用";
+        }
+        appRoot.setAttribute("data-default-canary-count", String(payload.default_count || 0));
+        populateInheritOptions(modalInheritSource, payload.other_versions || [], {
+          includeNone: true,
+          noneLabel: "清空当前版本名单"
+        });
+
+        modalMembersCount.textContent = String(modalState.members.length);
+        modalMembersTbody.innerHTML = "";
+        for (var i = 0; i < modalState.members.length; i++) {
+          var member = modalState.members[i];
+          var descParts = [];
+          if (member.computer_name) descParts.push(member.computer_name);
+          if (member.local_ip) descParts.push(member.local_ip);
+          if (member.note) descParts.push("备注: " + member.note);
+          if (member.in_default) descParts.push("[默认名单]");
+          var deviceText = descParts.length > 0 ? descParts.join(" · ") : "未注册 UID";
+
+          var tr = document.createElement("tr");
+          tr.setAttribute("data-uid", member.uid);
+          tr.setAttribute("data-device", descParts.length > 0 ? deviceText : "");
+          tr.setAttribute("data-added-at", String(member.added_at));
+
+          var uidTd = document.createElement("td");
+          uidTd.className = "uid-cell";
+          var uidCode = document.createElement("code");
+          uidCode.className = "uid-code";
+          uidCode.textContent = member.uid;
+          uidTd.appendChild(uidCode);
+
+          var deviceTd = document.createElement("td");
+          if (descParts.length > 0) {
+            deviceTd.textContent = deviceText;
+          } else {
+            var emptySpan = document.createElement("span");
+            emptySpan.className = "muted-note";
+            emptySpan.textContent = "未注册 UID";
+            deviceTd.appendChild(emptySpan);
+          }
+
+          var tsTd = document.createElement("td");
+          tsTd.className = "ts-cell";
+          tsTd.setAttribute("data-ts", String(member.added_at));
+
+          var actTd = document.createElement("td");
+          actTd.className = "action-cell";
+          var rmBtn = document.createElement("button");
+          rmBtn.type = "button";
+          rmBtn.className = "btn btn-sm btn-danger-outline";
+          rmBtn.setAttribute("data-remove-modal-uid", member.uid);
+          rmBtn.textContent = "移出";
+          actTd.appendChild(rmBtn);
+
+          tr.appendChild(uidTd);
+          tr.appendChild(deviceTd);
+          tr.appendChild(tsTd);
+          tr.appendChild(actTd);
+          modalMembersTbody.appendChild(tr);
+        }
+        enhanceUidTable(modalMembersTbody);
+        applyModalMembersView();
+        refreshTableLayout("modal-members");
+        renderModalClientPicker();
+      }
+
+      function closeCanaryModal() {
+        canaryModal.hidden = true;
+        modalState.version = null;
+        modalState.members = [];
+      }
+
+      function openCanaryModal(version) {
+        modalState.version = version;
+        modalAddUidInput.value = "";
+        modalPickerSearch.value = "";
+        state.modalSearch = "";
+        if (modalMembersSearch) modalMembersSearch.value = "";
+        canaryModalVersion.textContent = version;
+        modalMembersCount.textContent = "…";
+        modalMembersTbody.innerHTML = "";
+        canaryModal.hidden = false;
+        applyModalMembersView();
+        refreshTableLayout("modal-members");
+        sendAdminJson("/admin/updates/" + encodeURIComponent(version) + "/canary", null, "GET").then(function (payload) {
+          if (modalState.version !== version) return;
+          renderCanaryModalPayload(payload);
+        }).catch(function (err) {
+          showToast(err && err.message ? err.message : "加载灰度名单失败", "error");
+          closeCanaryModal();
+        });
+      }
+
+      tbody.addEventListener("click", function (e) {
+        if (handleUidTableClick(e)) return;
+        var toggleCanaryBtn = e.target.closest("[data-default-canary-toggle]");
+        if (toggleCanaryBtn) {
+          var targetUid = toggleCanaryBtn.getAttribute("data-default-canary-toggle") || "";
+          var inDefault = toggleCanaryBtn.getAttribute("data-in-default") === "1";
+          if (!targetUid) return;
+          toggleCanaryBtn.disabled = true;
+          var url = inDefault ? "/admin/canary/default/remove" : "/admin/canary/default/add";
+          sendAdminJson(url, { uid: targetUid }).then(function () {
+            showToast((inDefault ? "已移出默认灰度：" : "已加入默认灰度：") + shortUid(targetUid), "ok");
+            return refreshAdmin(true);
+          }).catch(function (err) {
+            toggleCanaryBtn.disabled = false;
+            showToast(err && err.message ? err.message : "操作失败", "error");
+          });
+        }
+      });
+
+      defaultCanaryTbody.addEventListener("click", function (e) {
+        if (handleUidTableClick(e)) return;
+        var removeBtn = e.target.closest("[data-remove-default-canary]");
+        if (removeBtn) {
+          var uid = removeBtn.getAttribute("data-remove-default-canary") || "";
+          if (!uid) return;
+          removeBtn.disabled = true;
+          sendAdminJson("/admin/canary/default/remove", { uid: uid }).then(function () {
+            showToast("已从默认灰度名单移出 " + shortUid(uid), "ok");
+            return refreshAdmin(true);
+          }).catch(function (err) {
+            removeBtn.disabled = false;
+            showToast(err && err.message ? err.message : "移出失败", "error");
+          });
+        }
+      });
+
+      defaultCanaryAddForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var uid = normalizeClientUidInput(defaultCanaryUidInput.value);
+        if (!uid) {
+          showToast("请输入有效的 64 位十六进制客户端 UID", "error");
+          defaultCanaryUidInput.focus();
+          return;
+        }
+        var note = defaultCanaryNoteInput.value.trim();
+        var btn = document.getElementById("default-canary-add-btn");
+        btn.disabled = true;
+        sendAdminJson("/admin/canary/default/add", { uid: uid, note: note || null }).then(function () {
+          defaultCanaryUidInput.value = "";
+          defaultCanaryNoteInput.value = "";
+          showToast("已将 " + shortUid(uid) + " 加入默认灰度名单", "ok");
+          return refreshAdmin(true);
+        }).catch(function (err) {
+          showToast(err && err.message ? err.message : "添加失败", "error");
+        }).finally(function () {
+          btn.disabled = false;
+        });
+      });
+
+      defaultPickerSearch.addEventListener("input", renderDefaultClientPicker);
+      defaultPickerList.addEventListener("change", function () {
+        updatePickerAddButton(defaultPickerList, defaultPickerAddBtn);
+      });
+      defaultPickerAddBtn.addEventListener("click", function () {
+        var uids = getSelectedPickerUids(defaultPickerList);
+        if (uids.length === 0) return;
+        defaultPickerAddBtn.disabled = true;
+        sendAdminJson("/admin/canary/default/add", { uids: uids }).then(function () {
+          showToast("已批量将 " + uids.length + " 台客户端加入默认灰度名单", "ok");
+          return refreshAdmin(true);
+        }).catch(function (err) {
+          showToast(err && err.message ? err.message : "批量添加失败", "error");
+          updatePickerAddButton(defaultPickerList, defaultPickerAddBtn);
+        });
       });
 
       tbody.addEventListener("submit", function (e) {
@@ -2531,6 +4069,12 @@
       latestVersionPill.addEventListener("click", function () {
         setActiveTab("versions");
       });
+      latestCanaryPillWrap.addEventListener("click", function (e) {
+        if (e.target.closest("#latest-canary-pill")) {
+          setActiveTab("versions");
+        }
+      });
+      uploadStageSelect.addEventListener("change", syncUploadInheritOptions);
 
       pickDirBtn.addEventListener("click", function () {
         uploadDirInput.click();
@@ -2589,6 +4133,12 @@
           searchInput.value = ver;
           applyView();
           setActiveTab("clients");
+          return;
+        }
+        var manageCanaryBtn = e.target.closest("[data-manage-canary]");
+        if (manageCanaryBtn) {
+          var canaryVer = manageCanaryBtn.getAttribute("data-manage-canary") || "";
+          if (canaryVer) openCanaryModal(canaryVer);
         }
       });
 
@@ -2599,9 +4149,14 @@
           var row = toggleForm.closest("tr");
           var ver = row ? row.getAttribute("data-version") : "";
           var submitter = e.submitter || toggleForm.querySelector("button");
-          var enabling = submitter && submitter.value === "1";
+          var nextStage = submitter ? submitter.value : "";
+          var stageMsgMap = {
+            canary: "已将版本 " + ver + " 转为灰度测试",
+            released: "已全量发布版本 " + ver,
+            disabled: "已停用版本 " + ver
+          };
           submitFormAsync(toggleForm, submitter, function () {
-            return (enabling ? "已启用版本 " : "已停用版本 ") + ver;
+            return stageMsgMap[nextStage] || ("已更新版本 " + ver + " 状态");
           });
           return;
         }
@@ -2612,14 +4167,117 @@
           var delVer = delRow ? delRow.getAttribute("data-version") : "";
           var isLatest = delRow && delRow.getAttribute("data-is-latest") === "1";
           var msg = isLatest
-            ? ("版本 " + delVer + " 当前正在向客户端推送！删除后文件将永久移除且无法撤回，确认删除吗？")
-            : ("确认永久删除版本 " + delVer + " 的所有服务器文件吗？");
+            ? ("版本 " + delVer + " 当前正在全量推送！删除后文件将永久移除且无法撤回，确认删除吗？")
+            : ("确认永久删除版本 " + delVer + " 的所有服务器文件与灰度名单吗？");
           if (!window.confirm(msg)) return;
           var delBtn = e.submitter || deleteForm.querySelector("button");
           submitFormAsync(deleteForm, delBtn, function () {
             return "已删除版本 " + delVer;
           });
         }
+      });
+
+      canaryModalClose.addEventListener("click", closeCanaryModal);
+      canaryModal.addEventListener("click", function (e) {
+        if (e.target === canaryModal) closeCanaryModal();
+      });
+
+      modalPickerSearch.addEventListener("input", renderModalClientPicker);
+      modalPickerList.addEventListener("change", function () {
+        updatePickerAddButton(modalPickerList, modalPickerAddBtn);
+      });
+
+      modalPickerAddBtn.addEventListener("click", function () {
+        if (!modalState.version) return;
+        var uids = getSelectedPickerUids(modalPickerList);
+        if (uids.length === 0) return;
+        modalPickerAddBtn.disabled = true;
+        sendAdminJson("/admin/updates/" + encodeURIComponent(modalState.version) + "/canary/add", { uids: uids }).then(function (payload) {
+          renderCanaryModalPayload(payload);
+          showToast("已向版本 " + payload.version + " 添加 " + uids.length + " 台灰度设备", "ok");
+          return refreshAdmin(true);
+        }).catch(function (err) {
+          showToast(err && err.message ? err.message : "添加失败", "error");
+          updatePickerAddButton(modalPickerList, modalPickerAddBtn);
+        });
+      });
+
+      modalAddUidForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        if (!modalState.version) return;
+        var uid = normalizeClientUidInput(modalAddUidInput.value);
+        if (!uid) {
+          showToast("请输入有效的 64 位十六进制客户端 UID", "error");
+          modalAddUidInput.focus();
+          return;
+        }
+        var btn = document.getElementById("modal-add-uid-btn");
+        btn.disabled = true;
+        sendAdminJson("/admin/updates/" + encodeURIComponent(modalState.version) + "/canary/add", { uid: uid }).then(function (payload) {
+          modalAddUidInput.value = "";
+          renderCanaryModalPayload(payload);
+          showToast("已添加 " + shortUid(uid) + " 到版本 " + payload.version + " 灰度名单", "ok");
+          return refreshAdmin(true);
+        }).catch(function (err) {
+          showToast(err && err.message ? err.message : "添加失败", "error");
+        }).finally(function () {
+          btn.disabled = false;
+        });
+      });
+
+      modalMembersTbody.addEventListener("click", function (e) {
+        if (handleUidTableClick(e)) return;
+        var rmBtn = e.target.closest("[data-remove-modal-uid]");
+        if (!rmBtn || !modalState.version) return;
+        var uid = rmBtn.getAttribute("data-remove-modal-uid") || "";
+        if (!uid) return;
+        rmBtn.disabled = true;
+        sendAdminJson("/admin/updates/" + encodeURIComponent(modalState.version) + "/canary/remove", { uid: uid }).then(function (payload) {
+          renderCanaryModalPayload(payload);
+          showToast("已移出 " + shortUid(uid), "ok");
+          return refreshAdmin(true);
+        }).catch(function (err) {
+          rmBtn.disabled = false;
+          showToast(err && err.message ? err.message : "移出失败", "error");
+        });
+      });
+
+      modalInheritBtn.addEventListener("click", function () {
+        if (!modalState.version) return;
+        var source = modalInheritSource.value || "default";
+        var mode = modalInheritMode.value || "replace";
+        if (mode === "replace" && source === "none" && !window.confirm("确认清空版本 " + modalState.version + " 的全部灰度设备吗？")) {
+          return;
+        }
+        modalInheritBtn.disabled = true;
+        sendAdminJson("/admin/updates/" + encodeURIComponent(modalState.version) + "/canary/inherit", {
+          source: source,
+          mode: mode
+        }).then(function (payload) {
+          renderCanaryModalPayload(payload);
+          showToast("已更新版本 " + payload.version + " 灰度名单（当前共 " + payload.members.length + " 台）", "ok");
+          return refreshAdmin(true);
+        }).catch(function (err) {
+          showToast(err && err.message ? err.message : "导入失败", "error");
+        }).finally(function () {
+          modalInheritBtn.disabled = false;
+        });
+      });
+
+      modalSaveDefaultBtn.addEventListener("click", function () {
+        if (!modalState.version) return;
+        if (!window.confirm("确认用版本 " + modalState.version + " 当前灰度名单（" + modalState.members.length + " 台）覆盖默认灰度名单吗？")) {
+          return;
+        }
+        modalSaveDefaultBtn.disabled = true;
+        sendAdminJson("/admin/updates/" + encodeURIComponent(modalState.version) + "/canary/save-default", { mode: "replace" }).then(function (res) {
+          showToast("已更新默认灰度名单（共 " + res.default_count + " 台）", "ok");
+          return refreshAdmin(true);
+        }).catch(function (err) {
+          showToast(err && err.message ? err.message : "同步默认名单失败", "error");
+        }).finally(function () {
+          modalSaveDefaultBtn.disabled = false;
+        });
       });
 
       distributionPanel.addEventListener("submit", function (e) {
@@ -2644,18 +4302,51 @@
         }
       });
 
+      function getActiveSearchTarget() {
+        if (!canaryModal.hidden) {
+          return {
+            input: modalMembersSearch,
+            clear: function () { state.modalSearch = ""; applyModalMembersView(); }
+          };
+        }
+        if (state.activeTab === "versions") {
+          return {
+            input: versionSearchInput,
+            clear: function () { state.versionSearch = ""; applyVersionsView(); }
+          };
+        }
+        if (state.activeTab === "canary") {
+          return {
+            input: defaultCanarySearch,
+            clear: function () { state.canarySearch = ""; applyDefaultCanaryView(); }
+          };
+        }
+        return {
+          input: searchInput,
+          clear: function () { state.search = ""; applyView(); }
+        };
+      }
+
       document.addEventListener("keydown", function (e) {
-        if (state.activeTab === "clients" && e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-          var tag = document.activeElement ? document.activeElement.tagName : "";
-          if (tag !== "INPUT" && tag !== "TEXTAREA") {
-            e.preventDefault();
-            searchInput.focus();
-            searchInput.select();
+        var target = getActiveSearchTarget();
+        if (e.key === "Escape") {
+          if (target.input && document.activeElement === target.input && target.input.value) {
+            target.input.value = "";
+            target.clear();
+            return;
           }
-        } else if (state.activeTab === "clients" && e.key === "Escape" && document.activeElement === searchInput && searchInput.value) {
-          state.search = "";
-          searchInput.value = "";
-          applyView();
+          if (!canaryModal.hidden) {
+            closeCanaryModal();
+            return;
+          }
+        }
+        if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          var tag = document.activeElement ? document.activeElement.tagName : "";
+          if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT" && target.input) {
+            e.preventDefault();
+            target.input.focus();
+            target.input.select();
+          }
         }
       });
 
@@ -2665,7 +4356,12 @@
       updateThemeUI();
       enhanceRows();
       enhanceVersionRows();
+      syncUploadInheritOptions();
+      renderDefaultClientPicker();
       applyView();
+      applyVersionsView();
+      applyDefaultCanaryView();
+      initResizableTables();
     })();
   </script>
 </body>
