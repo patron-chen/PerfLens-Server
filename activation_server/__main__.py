@@ -52,6 +52,15 @@ def main(argv=None):
     publish = commands.add_parser("publish-update", help="Publish a signed Windows x64 update")
     publish.add_argument("--data-dir", type=Path, required=True)
     publish.add_argument("--release-dir", type=Path, required=True)
+    setup_cmd = commands.add_parser("setup", help="Initialize environment, dependencies, and keys")
+    setup_cmd.add_argument("--python", help="Path to Python 3.13 64-bit interpreter to use")
+    setup_cmd.add_argument("--mirror", help="Mirror URL prefix for downloading standalone Python")
+    setup_cmd.add_argument("--pip-index-url", help="PyPI index URL override for pip install")
+    setup_cmd.add_argument("--force", action="store_true", help="Force recreate virtual environment")
+    setup_cmd.add_argument("--data-dir", type=Path, default=Path("private/activation"), help=argparse.SUPPRESS)
+    setup_cmd.add_argument("--venv-dir", type=Path, default=Path("private/activation-venv"), help=argparse.SUPPRESS)
+    setup_cmd.add_argument("--distribution-dir", type=Path, default=Path("distribution"), help=argparse.SUPPRESS)
+    setup_cmd.add_argument("--log-dir", type=Path, default=Path("log"), help=argparse.SUPPRESS)
     serve = commands.add_parser("serve", help="Start the activation API and admin page")
     serve.add_argument("--data-dir", type=Path, required=True)
     serve.add_argument("--host", default="127.0.0.1")
@@ -71,6 +80,9 @@ def main(argv=None):
             version = publish_update(args.data_dir, args.release_dir, key)
             print(f"Published Windows x64 update {version}")
             return
+        if args.command == "setup":
+            from .setup import run_setup
+            return run_setup(args)
         if args.log_dir is not None:
             logging.basicConfig(level=logging.INFO, handlers=[file_log_handler(args.log_dir)], force=True)
             logger = logging.getLogger("uvicorn.error")

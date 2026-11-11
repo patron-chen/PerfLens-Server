@@ -2,9 +2,44 @@
 
 PerfLens 的独立内网激活服务器。客户端以现有 UID 登记，首次请求自动签发，适用于受控内网。管理页按 UID 停发或恢复签发。
 
+## 环境初始化
+
+在全新机器上部署前，运行 setup 脚本初始化环境。脚本优先检测本机的 64 位 Python 3.13；若未安装，会自动下载官方独立便携版 CPython 3.13 到 `private/python`（无需安装系统级软件包或管理员权限），随后创建 `private/activation-venv`、安装依赖包并初始化签名密钥与数据库。
+
+### Windows
+
+双击或在命令行运行 `setup.bat`：
+
+```bat
+setup.bat
+setup.bat --help
+setup.bat --mirror https://ghproxy.net/
+setup.bat --python "C:\Python313\python.exe"
+setup.bat --force --no-pause
+```
+
+- `--mirror <URL>`：指定 GitHub / 代理加速前缀（也可设置环境变量 `GH_PROXY` 和 `PIP_INDEX_URL`）。
+- `--python <路径>`：指定已有 Python 3.13 解释器路径。
+- `--force`：强制重新创建虚拟环境并重装依赖。
+- `--no-pause`：执行完毕后不暂停（适用于自动化调用）。
+
+### Linux
+
+在终端运行 `setup.sh`：
+
+```bash
+bash setup.sh
+bash setup.sh --help
+bash setup.sh --mirror https://ghproxy.net/
+bash setup.sh --python /usr/local/bin/python3.13
+bash setup.sh --force
+```
+
+初始化成功后，在 `deploy.bat` / `deploy.sh` 顶部填写 `PERFLENS_ADMIN_USERNAME` 和 `PERFLENS_ADMIN_PASSWORD` 即可开始部署。
+
 ## 部署
 
-准备带有 `venv` 和 `pip` 的 Python 3.13。在对应脚本顶部填写 `PERFLENS_ADMIN_USERNAME` 和 `PERFLENS_ADMIN_PASSWORD`。两项默认留空，填好后才能部署。使用 ASCII 字符，用户名不能含冒号。实际凭据仅填写在部署机的脚本中，并限制文件访问权限。
+部署脚本会自动优先检测并复用 `setup` 初始化的 `private/activation-venv` 或 `private/python`。在对应脚本顶部填写 `PERFLENS_ADMIN_USERNAME` 和 `PERFLENS_ADMIN_PASSWORD`。两项默认留空，填好后才能部署。使用 ASCII 字符，用户名不能含冒号。实际凭据仅填写在部署机的脚本中，并限制文件访问权限。
 
 ### Windows（BAT）
 

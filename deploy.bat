@@ -14,6 +14,16 @@ rem Set to 1 to allow HTTP admin on a trusted LAN.
 set "PERFLENS_ADMIN_ALLOW_HTTP=0"
 
 pushd "%~dp0" || exit /b 1
+
+rem Auto-detect local virtualenv or standalone Python if default python is unchanged
+if "%ACTIVATION_PYTHON%"=="python.exe" (
+    if exist "private\activation-venv\Scripts\python.exe" (
+        set "ACTIVATION_PYTHON=private\activation-venv\Scripts\python.exe"
+    ) else if exist "private\python\python.exe" (
+        set "ACTIVATION_PYTHON=private\python\python.exe"
+    )
+)
+
 "%ACTIVATION_PYTHON%" -B -m activation_server.windows_deploy %*
 set "DEPLOY_RESULT=%ERRORLEVEL%"
 popd

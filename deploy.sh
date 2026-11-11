@@ -157,6 +157,17 @@ venv_python=$venv_dir/bin/python
 data_dir=private/activation
 log_dir=log
 
+# Auto-detect local standalone Python if default python3.13 is missing from PATH
+if [[ $python_exe == python3.13 ]] && ! command -v "$python_exe" >/dev/null 2>&1; then
+    if [[ -x private/python/bin/python3 ]]; then
+        python_exe=private/python/bin/python3
+    elif [[ -x private/python/bin/python ]]; then
+        python_exe=private/python/bin/python
+    elif command -v python3 >/dev/null 2>&1 && python3 -c 'import sys; sys.exit(0 if sys.version_info[:2] == (3, 13) else 1)' 2>/dev/null; then
+        python_exe=python3
+    fi
+fi
+
 install_service()
 {
     local script_path=$PWD/${BASH_SOURCE[0]##*/}
