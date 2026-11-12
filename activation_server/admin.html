@@ -1153,11 +1153,11 @@
 
     .canary-grid {
       display: grid;
-      grid-template-columns: minmax(280px, 1fr) minmax(300px, 1.2fr);
+      grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.55fr);
       gap: 1rem;
       margin-bottom: 1.15rem;
     }
-    @media (max-width: 860px) {
+    @media (max-width: 1080px) {
       .canary-grid { grid-template-columns: 1fr; }
     }
 
@@ -1170,6 +1170,7 @@
       display: flex;
       flex-direction: column;
       gap: 0.7rem;
+      min-width: 0;
     }
     .canary-box h3 {
       margin: 0;
@@ -1189,48 +1190,26 @@
       gap: 0.5rem;
       align-items: center;
     }
-    .inline-form-row .input { flex: 1; min-width: 180px; }
+    .inline-form-row .input { flex: 1; min-width: 160px; }
 
-    .picker-list {
+    .picker-table-wrap {
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
+      background: var(--surface);
+      max-height: 260px;
+      overflow: auto;
+    }
+    .picker-table-wrap thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
       background: var(--surface-2);
-      max-height: 210px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
     }
-
-    .picker-item {
-      display: flex;
-      align-items: center;
-      gap: 0.55rem;
-      padding: 0.45rem 0.65rem;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.83rem;
+    .picker-table-wrap tbody tr.is-disabled {
+      opacity: 0.62;
+    }
+    .picker-table-wrap tbody tr:not(.is-disabled) {
       cursor: pointer;
-    }
-    .picker-item:last-child { border-bottom: 0; }
-    .picker-item:hover { background: var(--surface-hover); }
-    .picker-item.is-disabled { opacity: 0.6; cursor: default; }
-    .picker-meta {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.4rem;
-      flex: 1;
-      min-width: 0;
-    }
-    .picker-uid {
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      color: var(--text-muted);
-    }
-    .picker-empty {
-      padding: 0.85rem;
-      text-align: center;
-      font-size: 0.84rem;
-      color: var(--text-muted);
     }
 
     .note-cell { max-width: 180px; word-break: break-word; }
@@ -1310,6 +1289,150 @@
 
     a.btn { text-decoration: none; }
 
+    .select-cell {
+      width: 2.3rem;
+      text-align: center;
+      padding-left: 0.5rem;
+      padding-right: 0.35rem;
+    }
+
+    .group-dot {
+      display: inline-block;
+      width: 0.58rem;
+      height: 0.58rem;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .group-dot-lg {
+      width: 0.78rem;
+      height: 0.78rem;
+    }
+
+    .group-inline-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.38rem;
+      max-width: 100%;
+    }
+
+    .input-xs {
+      padding: 0.18rem 0.42rem;
+      font-size: 0.8rem;
+      min-height: 1.7rem;
+      max-width: 9.5rem;
+    }
+
+    .group-name-cell {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+    }
+
+    .group-pill-mini {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.16rem 0.55rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-2);
+      font-size: 0.8rem;
+    }
+
+    .status-stack {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.28rem;
+    }
+
+    .policy-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.1rem 0.44rem;
+      border-radius: 999px;
+      font-size: 0.73rem;
+      font-weight: 550;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      background: var(--surface-2);
+    }
+    .policy-tag.is-override {
+      color: var(--warn);
+      background: var(--warn-bg);
+      border-color: transparent;
+    }
+
+    .batch-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.65rem;
+      padding: 0.65rem 0.9rem;
+      border-radius: var(--radius-sm);
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+    }
+    .batch-bar[hidden] { display: none; }
+    .batch-bar-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.55rem;
+    }
+
+    .canary-groups-banner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+    .canary-groups-list {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .group-check-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+      gap: 0.45rem;
+    }
+    .group-check-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.42rem 0.65rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.84rem;
+    }
+    .group-check-chip:hover { border-color: var(--accent); }
+
+    .color-swatch-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem;
+    }
+    .color-swatch {
+      width: 1.55rem;
+      height: 1.55rem;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      padding: 0;
+    }
+    .color-swatch[aria-pressed="true"] {
+      border-color: var(--text);
+      box-shadow: 0 0 0 2px var(--surface);
+    }
+
     @media (max-width: 640px) {
       .topbar { align-items: flex-start; }
       .clients-header, .card { padding-left: 1rem; padding-right: 1rem; }
@@ -1318,7 +1441,7 @@
   </style>
 </head>
 <body>
-  <main id="app-root" data-server-now="$server_now" data-existing-versions="$existing_versions_json" data-default-canary-count="$default_canary_count">
+  <main id="app-root" data-server-now="$server_now" data-existing-versions="$existing_versions_json" data-default-canary-count="$default_canary_count" data-groups="$groups_json">
     <header class="topbar">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">
@@ -1359,6 +1482,10 @@
         <span>客户端管理</span>
         <span id="tab-clients-count" class="tab-badge">$count</span>
       </button>
+      <button type="button" id="tab-btn-groups" class="view-tab" role="tab" data-tab="groups" aria-selected="false" aria-controls="tab-groups">
+        <span>分组管理</span>
+        <span id="tab-groups-count" class="tab-badge">$group_count</span>
+      </button>
       <button type="button" id="tab-btn-versions" class="view-tab" role="tab" data-tab="versions" aria-selected="false" aria-controls="tab-versions">
         <span>版本管理</span>
         <span id="tab-versions-count" class="tab-badge">$version_count</span>
@@ -1391,14 +1518,14 @@
 
       <section class="card policy" aria-labelledby="policy">
         <div class="policy-head">
-          <h2 id="policy">签发策略</h2>
-          <p class="muted-note">新 UID 自动登记并签发。调整有效期或停发对后续签发请求生效，已领到的授权在到期前有效。</p>
+          <h2 id="policy">全局签发策略</h2>
+          <p class="muted-note">新 UID 自动归入默认分组。若分组未设置自定义有效期，将使用此处全局有效期；停发对后续签发生效。</p>
         </div>
         <form id="policy-form" class="policy-form" method="post" action="/admin/settings" data-saved-duration="$duration">
           <input type="hidden" name="csrf" value="$csrf">
           <div class="policy-row">
             <label class="policy-field" for="duration-input">
-              <span>有效期（分钟）</span>
+              <span>全局有效期（分钟）</span>
               <input id="duration-input" class="input" type="number" name="duration_minutes" min="1" step="1" value="$duration" required>
             </label>
             <span id="duration-preview" class="duration-preview" aria-live="polite"></span>
@@ -1419,25 +1546,44 @@
         <div class="clients-header">
           <div class="clients-title-row">
             <h2 id="clients">已登记客户端（<span id="clients-count">$count</span>）</h2>
-            <p class="muted-note">计算机名、本机 IP 和客户端版本来自最近一次成功上报。点击表头可排序，点击 UID 可展开完整值。</p>
+            <p class="muted-note">支持按分组统一管理或单机覆盖策略。点击表头可排序，点击 UID 可展开完整值。</p>
           </div>
           <div class="toolbar">
             <div class="search-box">
               <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
               </svg>
-              <input id="client-search" class="input" type="search" placeholder="搜索 UID / 计算机名 / IP / 版本… (按 / 聚焦)" autocomplete="off">
+              <input id="client-search" class="input" type="search" placeholder="搜索 UID / 计算机名 / IP / 版本 / 分组… (按 / 聚焦)" autocomplete="off">
               <button type="button" id="search-clear" class="search-clear" title="清空搜索" aria-label="清空搜索" hidden>×</button>
             </div>
+            <select id="client-group-filter" class="input input-sm" aria-label="按分组筛选">
+              <option value="all">全部分组</option>
+              $group_filter_options
+            </select>
             <div class="filter-group" role="group" aria-label="按状态筛选">
               <button type="button" class="filter-pill" data-filter="all" aria-pressed="true">全部 (<span data-count-for="all">$count</span>)</button>
               <button type="button" class="filter-pill" data-filter="enabled" aria-pressed="false">启用 (<span data-count-for="enabled">$enabled_count</span>)</button>
               <button type="button" class="filter-pill" data-filter="disabled" aria-pressed="false">停发 (<span data-count-for="disabled">$disabled_count</span>)</button>
+              <button type="button" class="filter-pill" data-filter="override" aria-pressed="false">单机覆盖 (<span data-count-for="override">$override_client_count</span>)</button>
               <button type="button" class="filter-pill" data-filter="active" aria-pressed="false">授权有效 (<span data-count-for="active">$active_lease_count</span>)</button>
               <button type="button" class="filter-pill" data-filter="expired" aria-pressed="false">已过期 (<span data-count-for="expired">0</span>)</button>
               <button type="button" class="filter-pill" data-filter="canary" aria-pressed="false">默认灰度 (<span data-count-for="canary">$canary_client_count</span>)</button>
             </div>
             <button type="button" class="btn btn-sm btn-ghost table-reset-cols" data-reset-table="clients" hidden>重置列宽</button>
+          </div>
+          <div id="clients-batch-bar" class="batch-bar" hidden>
+            <span>已选中 <strong id="batch-selected-count">0</strong> 台客户端</span>
+            <div class="batch-bar-controls">
+              <select id="batch-group-select" class="input input-sm" aria-label="选择目标分组">
+                $group_select_options
+              </select>
+              <label class="checkbox-label">
+                <input type="checkbox" id="batch-clear-override">
+                <span>同时恢复跟随分组</span>
+              </label>
+              <button type="button" id="batch-assign-group-btn" class="btn btn-sm btn-primary">批量移入分组</button>
+              <button type="button" id="batch-clear-selection-btn" class="btn btn-sm">取消选择</button>
+            </div>
           </div>
         </div>
 
@@ -1445,10 +1591,12 @@
           <table data-table-id="clients">
             <thead>
               <tr>
+                <th scope="col" class="th-plain select-cell"><input type="checkbox" id="clients-select-all" aria-label="全选当前可见客户端"></th>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="uid"><span>UID</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="computer"><span>计算机名</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="ip"><span>本机 IP</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="version"><span>客户端版本</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="groupName"><span>所属分组</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="firstSeen"><span>首次登记</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="lastSeen" data-active="true"><span>最近请求</span><span class="sort-arrow" aria-hidden="true">↓</span></button></th>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="clients" data-sort="expiresAt"><span>最近签发到期</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
@@ -1457,13 +1605,77 @@
               </tr>
             </thead>
             <tbody id="clients-tbody">$rows</tbody>
-            <tfoot><tr><td colspan="9" class="empty-cell">等待首个客户端注册。</td></tr></tfoot>
+            <tfoot><tr><td colspan="11" class="empty-cell">等待首个客户端注册。</td></tr></tfoot>
           </table>
         </div>
 
         <div id="filter-empty" class="filter-empty" hidden>
           <p id="filter-empty-text">没有符合当前搜索或筛选条件的客户端。</p>
           <button type="button" id="clear-filters-btn" class="btn btn-sm">重置搜索与筛选</button>
+        </div>
+      </section>
+    </section>
+
+    <section id="tab-groups" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-groups" hidden>
+      <section class="stats-grid" aria-label="分组概览统计">
+        <div class="stat-card stat-card-static">
+          <span class="stat-label"><span>分组总数</span><span class="stat-dot accent"></span></span>
+          <strong class="stat-value" id="stat-groups-total">$group_count</strong>
+        </div>
+        <div class="stat-card stat-card-static">
+          <span class="stat-label"><span>允许自动签发分组</span><span class="stat-dot ok"></span></span>
+          <strong class="stat-value" id="stat-groups-issue">$group_issue_enabled_count</strong>
+        </div>
+        <div class="stat-card stat-card-static">
+          <span class="stat-label"><span>默认加入灰度分组</span><span class="stat-dot warn"></span></span>
+          <strong class="stat-value" id="stat-groups-canary">$group_canary_count</strong>
+        </div>
+        <div class="stat-card stat-card-static">
+          <span class="stat-label"><span>自定义有效期分组</span><span class="stat-dot accent"></span></span>
+          <strong class="stat-value" id="stat-groups-duration">$group_custom_duration_count</strong>
+        </div>
+      </section>
+
+      <section class="card clients-card" aria-labelledby="groups-heading">
+        <div class="clients-header">
+          <div class="clients-title-row">
+            <h2 id="groups-heading">用户分组与统一策略（<span id="groups-count">$group_count</span>）</h2>
+            <p class="muted-note">每个已登记客户端均属于一个分组（新设备自动归入默认分组）。修改分组策略后，组内「跟随分组」的客户端及关联灰度版本将实时生效。</p>
+          </div>
+          <div class="toolbar">
+            <div class="search-box">
+              <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+              </svg>
+              <input id="group-search" class="input" type="search" placeholder="搜索分组名称或备注… (按 / 聚焦)" autocomplete="off">
+              <button type="button" id="group-search-clear" class="search-clear" title="清空搜索" aria-label="清空搜索" hidden>×</button>
+            </div>
+            <div class="inline-form-row">
+              <button type="button" class="btn btn-sm btn-ghost table-reset-cols" data-reset-table="groups" hidden>重置列宽</button>
+              <button type="button" id="new-group-btn" class="btn btn-primary">+ 新建分组</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table data-table-id="groups">
+            <thead>
+              <tr>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="groups" data-sort="groupName"><span>分组名称与备注</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="groups" data-sort="memberCount"><span>成员数量</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="groups" data-sort="autoIssue"><span>自动签发策略</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="groups" data-sort="canaryDefault"><span>默认灰度策略</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="groups" data-sort="groupDuration"><span>签发有效期</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col" class="th-plain">操作</th>
+              </tr>
+            </thead>
+            <tbody id="groups-tbody">$group_rows</tbody>
+            <tfoot><tr><td colspan="6" class="empty-cell">暂无分组。</td></tr></tfoot>
+          </table>
+        </div>
+        <div id="group-filter-empty" class="filter-empty" hidden>
+          <p>没有符合当前搜索条件的分组。</p>
+          <button type="button" id="clear-group-filters-btn" class="btn btn-sm">清空搜索</button>
         </div>
       </section>
     </section>
@@ -1574,7 +1786,7 @@
         <div class="clients-header">
           <div class="clients-title-row">
             <h2 id="versions-heading">服务器已发布版本（<span id="versions-count">$version_count</span>）</h2>
-            <p class="muted-note">灰度名单内的客户端优先匹配版本号最高的「全量启用」或「灰度测试」版本；其余客户端仅接收「全量启用」版本。点击表头可排序，拖动表头右边缘可调列宽。</p>
+            <p class="muted-note">灰度名单内的客户端（含关联灰度分组与独立 UID）优先匹配版本号最高的「全量启用」或「灰度测试」版本；其余客户端仅接收「全量启用」版本。</p>
           </div>
           <div class="toolbar">
             <div class="search-box">
@@ -1619,10 +1831,29 @@
     </section>
 
     <section id="tab-canary" class="tab-panel" role="tabpanel" aria-labelledby="tab-btn-canary" hidden>
+      <section class="card canary-groups-banner" aria-label="默认灰度分组设置">
+        <div class="inline-form-col" style="flex:1; min-width:260px">
+          <div class="modal-section-head">
+            <strong>默认灰度分组（新发布「灰度测试」版本自动关联）</strong>
+            <div class="inline-form-row">
+              <button type="button" id="default-groups-select-all" class="btn btn-sm btn-ghost">全选</button>
+              <button type="button" id="default-groups-clear-all" class="btn btn-sm btn-ghost">全不选</button>
+              <button type="button" id="goto-groups-btn" class="btn btn-sm">前往分组管理</button>
+              <button type="button" id="default-groups-save-btn" class="btn btn-sm btn-primary">保存默认灰度分组</button>
+            </div>
+          </div>
+          <div id="canary-groups-banner-list" class="group-check-grid">$canary_groups_banner</div>
+          <label class="checkbox-label">
+            <input type="checkbox" id="default-groups-sync-active">
+            <span>保存时同步应用到当前所有「灰度测试」阶段的版本</span>
+          </label>
+        </div>
+      </section>
+
       <div class="canary-grid">
         <section class="canary-box" aria-labelledby="default-canary-add-title">
-          <h3 id="default-canary-add-title">手动添加设备到默认灰度名单</h3>
-          <p class="muted-note">支持提前导入尚未首次激活的设备 UID；新发布「灰度测试」版本时将默认复制此名单。</p>
+          <h3 id="default-canary-add-title">手动添加设备到默认预置灰度 UID 名单</h3>
+          <p class="muted-note">支持提前导入尚未首次激活的设备 UID；新发布「灰度测试」版本时将自动关联默认灰度分组并复制此处 UID。</p>
           <form id="default-canary-add-form" class="inline-form-col">
             <label class="field-stack" for="default-canary-uid">
               <span>客户端 UID（64 位十六进制）</span>
@@ -1639,37 +1870,72 @@
         </section>
 
         <section class="canary-box" aria-labelledby="default-picker-title">
-          <h3 id="default-picker-title">从已登记客户端批量挑选</h3>
-          <div class="inline-form-row">
-            <input id="default-picker-search" class="input input-sm" type="search" placeholder="筛选计算机名 / IP / UID…" autocomplete="off">
+          <div class="modal-section-head">
+            <h3 id="default-picker-title">从已登记客户端批量挑选（点击表头可排序）</h3>
             <button type="button" id="default-picker-add-btn" class="btn btn-sm btn-canary" disabled>批量加入所选 (0)</button>
           </div>
-          <div id="default-picker-list" class="picker-list" role="region" aria-label="已登记客户端候选列表"></div>
+          <div class="inline-form-row">
+            <input id="default-picker-search" class="input input-sm" type="search" placeholder="筛选计算机名 / IP / UID / 版本 / 分组…" autocomplete="off">
+            <select id="default-picker-group-filter" class="input input-sm" style="flex:0 0 auto; min-width:145px" aria-label="按分组筛选已登记客户端">
+              <option value="all">全部分组</option>
+              $group_filter_options
+            </select>
+          </div>
+          <div class="table-wrap picker-table-wrap">
+            <table data-table-id="default-picker">
+              <thead>
+                <tr>
+                  <th scope="col" class="th-plain select-cell"><input type="checkbox" id="default-picker-select-all" aria-label="全选当前可选已登记客户端"></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-picker" data-sort="computer" data-active="true"><span>计算机名</span><span class="sort-arrow" aria-hidden="true">↑</span></button></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-picker" data-sort="uid"><span>UID</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-picker" data-sort="ip"><span>本机 IP</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-picker" data-sort="version"><span>客户端版本</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-picker" data-sort="groupName"><span>所属分组</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-picker" data-sort="canaryStatus"><span>灰度状态</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                </tr>
+              </thead>
+              <tbody id="default-picker-tbody"></tbody>
+              <tfoot><tr><td colspan="7" class="empty-cell">暂无已登记客户端。</td></tr></tfoot>
+            </table>
+          </div>
+          <div id="default-picker-filter-empty" class="filter-empty" hidden>
+            <p>没有符合筛选条件的已登记客户端。</p>
+          </div>
         </section>
       </div>
 
       <section class="card clients-card" aria-labelledby="default-canary-heading">
         <div class="clients-header">
           <div class="clients-title-row">
-            <h2 id="default-canary-heading">默认灰度名单（<span id="default-canary-count">$default_canary_count</span>）</h2>
-            <p class="muted-note">各版本仍保留独立灰度名单；在某版本名单弹窗中可将版本名单反向同步覆盖到此处。点击表头可排序，点击 UID 可展开完整值。</p>
+            <h2 id="default-canary-heading">默认预置灰度 UID 名单（<span id="default-canary-count">$default_canary_count</span>）</h2>
+            <p class="muted-note">各版本仍保留独立灰度名单；在某版本名单弹窗中可将版本名单（含关联分组与独立 UID）反向同步覆盖到默认配置。</p>
           </div>
           <div class="toolbar">
             <div class="search-box">
               <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
               </svg>
-              <input id="default-canary-search" class="input" type="search" placeholder="搜索 UID / 设备名 / IP / 备注… (按 / 聚焦)" autocomplete="off">
+              <input id="default-canary-search" class="input" type="search" placeholder="搜索 UID / 设备名 / IP / 备注 / 分组… (按 / 聚焦)" autocomplete="off">
               <button type="button" id="default-canary-search-clear" class="search-clear" title="清空搜索" aria-label="清空搜索" hidden>×</button>
             </div>
-            <button type="button" class="btn btn-sm btn-ghost table-reset-cols" data-reset-table="default-canary" hidden>重置列宽</button>
+            <select id="default-canary-group-filter" class="input input-sm" aria-label="按分组筛选默认灰度名单">
+              <option value="all">全部分组</option>
+              <option value="none">未激活 / 未分组</option>
+              $group_filter_options
+            </select>
+            <div class="inline-form-row">
+              <button type="button" id="default-canary-remove-selected-btn" class="btn btn-sm btn-danger-outline" disabled>批量移出所选 (0)</button>
+              <button type="button" class="btn btn-sm btn-ghost table-reset-cols" data-reset-table="default-canary" hidden>重置列宽</button>
+            </div>
           </div>
         </div>
         <div class="table-wrap">
           <table data-table-id="default-canary">
             <thead>
               <tr>
+                <th scope="col" class="th-plain select-cell"><input type="checkbox" id="default-canary-select-all" aria-label="全选默认灰度名单"></th>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-canary" data-sort="uid"><span>UID</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-canary" data-sort="groupName"><span>所属分组</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-canary" data-sort="computer"><span>关联设备</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-canary" data-sort="note"><span>备注</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="default-canary" data-sort="addedAt" data-active="true"><span>加入时间</span><span class="sort-arrow" aria-hidden="true">↓</span></button></th>
@@ -1677,16 +1943,83 @@
               </tr>
             </thead>
             <tbody id="default-canary-tbody">$default_canary_rows</tbody>
-            <tfoot><tr><td colspan="5" class="empty-cell">默认灰度名单为空，请从上方手动输入 UID 或从已登记客户端中挑选。</td></tr></tfoot>
+            <tfoot><tr><td colspan="7" class="empty-cell">默认灰度名单为空，请从上方手动输入 UID 或从已登记客户端中挑选。</td></tr></tfoot>
           </table>
         </div>
         <div id="default-canary-filter-empty" class="filter-empty" hidden>
-          <p>没有符合当前搜索条件的默认灰度设备。</p>
-          <button type="button" id="clear-default-canary-filter-btn" class="btn btn-sm">清空搜索</button>
+          <p>没有符合当前搜索或分组筛选条件的默认灰度设备。</p>
+          <button type="button" id="clear-default-canary-filter-btn" class="btn btn-sm">重置搜索与筛选</button>
         </div>
       </section>
     </section>
   </main>
+
+  <div id="group-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="group-modal-title" hidden>
+    <div class="modal-dialog" style="width:min(560px, 94vw)">
+      <div class="modal-head">
+        <div class="modal-title-wrap">
+          <h2 id="group-modal-title">新建分组</h2>
+        </div>
+        <button type="button" id="group-modal-close" class="btn btn-sm" aria-label="关闭分组弹窗">关闭</button>
+      </div>
+      <form id="group-modal-form" class="modal-body">
+        <input type="hidden" id="group-form-id" value="">
+        <label class="field-stack" for="group-form-name">
+          <span>分组名称</span>
+          <input id="group-form-name" class="input" type="text" maxlength="64" placeholder="例如：QA 测试组 / 内部研发 / 停用观察组" required>
+        </label>
+        <div class="field-stack">
+          <span>标识颜色</span>
+          <div class="inline-form-row">
+            <div id="group-color-swatches" class="color-swatch-row">
+              <button type="button" class="color-swatch" data-color="#2563eb" style="background:#2563eb" aria-label="蓝色" aria-pressed="true"></button>
+              <button type="button" class="color-swatch" data-color="#059669" style="background:#059669" aria-label="绿色" aria-pressed="false"></button>
+              <button type="button" class="color-swatch" data-color="#d97706" style="background:#d97706" aria-label="琥珀色" aria-pressed="false"></button>
+              <button type="button" class="color-swatch" data-color="#dc2626" style="background:#dc2626" aria-label="红色" aria-pressed="false"></button>
+              <button type="button" class="color-swatch" data-color="#7c3aed" style="background:#7c3aed" aria-label="紫色" aria-pressed="false"></button>
+              <button type="button" class="color-swatch" data-color="#64748b" style="background:#64748b" aria-label="灰蓝色" aria-pressed="false"></button>
+            </div>
+            <input id="group-form-color" class="input input-sm mono" type="text" value="#2563eb" maxlength="7" style="max-width:7rem" aria-label="十六进制颜色">
+          </div>
+        </div>
+        <label class="field-stack" for="group-form-note">
+          <span>分组备注（可选）</span>
+          <input id="group-form-note" class="input" type="text" maxlength="200" placeholder="说明该分组的用途或成员范围">
+        </label>
+        <div class="modal-section">
+          <h3>分组策略设置</h3>
+          <label class="checkbox-label">
+            <input type="checkbox" id="group-form-auto-issue" checked>
+            <span>启用自动签发（组内未单机覆盖的客户端均按此开关签发）</span>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" id="group-form-canary-default">
+            <span>默认加入灰度测试名单（新发布灰度版本时自动关联此分组）</span>
+          </label>
+          <label class="checkbox-label" id="group-form-sync-canary-wrap" hidden>
+            <input type="checkbox" id="group-form-sync-canary">
+            <span>同时同步此灰度开关到当前所有「灰度测试」阶段的版本</span>
+          </label>
+          <label class="field-stack" for="group-form-duration">
+            <span>自定义签发有效期（分钟，留空则沿用全局有效期）</span>
+            <input id="group-form-duration" class="input input-sm" type="number" min="1" step="1" placeholder="留空表示沿用全局设置">
+          </label>
+          <div class="preset-row">
+            <span class="preset-label">快捷填充：</span>
+            <button type="button" class="chip group-dur-preset" data-minutes="">沿用全局</button>
+            <button type="button" class="chip group-dur-preset" data-minutes="60">1 小时 (60)</button>
+            <button type="button" class="chip group-dur-preset" data-minutes="1440">1 天 (1440)</button>
+            <button type="button" class="chip group-dur-preset" data-minutes="10080">7 天 (10080)</button>
+            <button type="button" class="chip group-dur-preset" data-minutes="43200">30 天 (43200)</button>
+          </div>
+        </div>
+        <div class="inline-form-row" style="justify-content:flex-end">
+          <button type="button" id="group-form-cancel" class="btn btn-sm">取消</button>
+          <button type="submit" id="group-form-submit" class="btn btn-primary">保存分组</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <div id="canary-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="canary-modal-title" hidden>
     <div class="modal-dialog">
@@ -1694,10 +2027,24 @@
         <div class="modal-title-wrap">
           <h2 id="canary-modal-title">管理灰度名单：<code id="canary-modal-version">—</code></h2>
           <span id="canary-modal-stage-badge" class="badge badge-canary">灰度测试</span>
+          <span id="canary-modal-effective-summary" class="muted-note"></span>
         </div>
         <button type="button" id="canary-modal-close" class="btn btn-sm" aria-label="关闭弹窗">关闭</button>
       </div>
       <div class="modal-body">
+        <div class="modal-section">
+          <div class="modal-section-head">
+            <h3>关联灰度分组（成员移入/移出分组实时生效）</h3>
+            <div class="inline-form-row">
+              <button type="button" id="modal-groups-select-all" class="btn btn-sm btn-ghost">全选</button>
+              <button type="button" id="modal-groups-clear-all" class="btn btn-sm btn-ghost">全不选</button>
+              <button type="button" id="modal-groups-use-default-btn" class="btn btn-sm btn-ghost">勾选默认分组</button>
+              <button type="button" id="modal-save-groups-btn" class="btn btn-sm btn-primary">保存关联分组</button>
+            </div>
+          </div>
+          <div id="modal-canary-groups-list" class="group-check-grid"></div>
+        </div>
+
         <div class="modal-section">
           <div class="modal-section-head">
             <h3>快捷继承与默认名单同步</h3>
@@ -1716,49 +2063,84 @@
         </div>
 
         <div class="modal-section">
-          <h3>添加设备到此版本灰度名单</h3>
+          <div class="modal-section-head">
+            <h3>添加独立设备到此版本灰度名单（点击表头可排序）</h3>
+            <button type="button" id="modal-picker-add-btn" class="btn btn-sm btn-canary" disabled>批量加入所选 (0)</button>
+          </div>
           <form id="modal-add-uid-form" class="inline-form-row">
             <input id="modal-add-uid-input" class="input input-sm mono" type="text" placeholder="输入 64 位十六进制 UID…" autocomplete="off">
             <button type="submit" id="modal-add-uid-btn" class="btn btn-sm btn-primary">添加 UID</button>
           </form>
           <div class="inline-form-row">
-            <input id="modal-picker-search" class="input input-sm" type="search" placeholder="筛选已登记客户端…" autocomplete="off">
-            <button type="button" id="modal-picker-add-btn" class="btn btn-sm btn-canary" disabled>批量加入所选 (0)</button>
+            <input id="modal-picker-search" class="input input-sm" type="search" placeholder="筛选计算机名 / IP / UID / 版本 / 分组…" autocomplete="off">
+            <select id="modal-picker-group-filter" class="input input-sm" style="flex:0 0 auto; min-width:145px" aria-label="按分组筛选已登记客户端">
+              <option value="all">全部分组</option>
+              $group_filter_options
+            </select>
           </div>
-          <div id="modal-picker-list" class="picker-list"></div>
+          <div class="table-wrap picker-table-wrap">
+            <table data-table-id="modal-picker">
+              <thead>
+                <tr>
+                  <th scope="col" class="th-plain select-cell"><input type="checkbox" id="modal-picker-select-all" aria-label="全选当前可选已登记客户端"></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="modal-picker" data-sort="computer" data-active="true"><span>计算机名</span><span class="sort-arrow" aria-hidden="true">↑</span></button></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="modal-picker" data-sort="uid"><span>UID</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="modal-picker" data-sort="ip"><span>本机 IP</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="modal-picker" data-sort="version"><span>客户端版本</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="modal-picker" data-sort="groupName"><span>所属分组</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="modal-picker" data-sort="canaryStatus"><span>灰度状态</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                </tr>
+              </thead>
+              <tbody id="modal-picker-tbody"></tbody>
+              <tfoot><tr><td colspan="7" class="empty-cell">暂无已登记客户端。</td></tr></tfoot>
+            </table>
+          </div>
+          <div id="modal-picker-filter-empty" class="filter-empty" hidden>
+            <p>没有符合筛选条件的已登记客户端。</p>
+          </div>
         </div>
 
         <div class="modal-section">
           <div class="modal-section-head">
-            <h3>当前版本灰度设备（<span id="modal-members-count">0</span>）</h3>
-            <button type="button" class="btn btn-sm btn-ghost table-reset-cols" data-reset-table="modal-members" hidden>重置列宽</button>
+            <h3>当前版本独立灰度 UID（<span id="modal-members-count">0</span>）</h3>
+            <div class="inline-form-row">
+              <button type="button" id="modal-members-remove-selected-btn" class="btn btn-sm btn-danger-outline" disabled>批量移出所选 (0)</button>
+              <button type="button" class="btn btn-sm btn-ghost table-reset-cols" data-reset-table="modal-members" hidden>重置列宽</button>
+            </div>
           </div>
           <div class="toolbar">
             <div class="search-box">
               <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
               </svg>
-              <input id="modal-members-search" class="input input-sm" type="search" placeholder="搜索 UID / 设备名 / 备注…" autocomplete="off">
+              <input id="modal-members-search" class="input input-sm" type="search" placeholder="搜索 UID / 设备名 / 备注 / 分组…" autocomplete="off">
               <button type="button" id="modal-members-search-clear" class="search-clear" title="清空搜索" aria-label="清空搜索" hidden>×</button>
             </div>
+            <select id="modal-members-group-filter" class="input input-sm" aria-label="按分组筛选版本灰度 UID">
+              <option value="all">全部分组</option>
+              <option value="none">未激活 / 未分组</option>
+              $group_filter_options
+            </select>
           </div>
           <div class="table-wrap">
             <table data-table-id="modal-members">
               <thead>
                 <tr>
+                  <th scope="col" class="th-plain select-cell"><input type="checkbox" id="modal-members-select-all" aria-label="全选当前版本独立灰度 UID"></th>
                   <th scope="col"><button type="button" class="sort-btn" data-sort-table="modal-members" data-sort="uid"><span>UID</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                  <th scope="col"><button type="button" class="sort-btn" data-sort-table="modal-members" data-sort="groupName"><span>所属分组</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                   <th scope="col"><button type="button" class="sort-btn" data-sort-table="modal-members" data-sort="device"><span>关联设备 / 备注</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                   <th scope="col"><button type="button" class="sort-btn" data-sort-table="modal-members" data-sort="addedAt" data-active="true"><span>加入时间</span><span class="sort-arrow" aria-hidden="true">↓</span></button></th>
                   <th scope="col" class="th-plain">操作</th>
                 </tr>
               </thead>
               <tbody id="modal-members-tbody"></tbody>
-              <tfoot><tr><td colspan="4" class="empty-cell">此版本暂无灰度设备；若处于灰度测试阶段，目前没有任何客户端会收到此版本。</td></tr></tfoot>
+              <tfoot><tr><td colspan="6" class="empty-cell">此版本暂无独立灰度 UID；若同时未关联任何分组，目前没有客户端会收到此灰度版本。</td></tr></tfoot>
             </table>
           </div>
           <div id="modal-members-filter-empty" class="filter-empty" hidden>
-            <p>没有符合当前搜索条件的灰度设备。</p>
-            <button type="button" id="clear-modal-members-filter-btn" class="btn btn-sm">清空搜索</button>
+            <p>没有符合当前搜索或分组筛选条件的灰度设备。</p>
+            <button type="button" id="clear-modal-members-filter-btn" class="btn btn-sm">重置搜索与筛选</button>
           </div>
         </div>
       </div>
@@ -1781,12 +2163,29 @@
 
       var searchInput = document.getElementById("client-search");
       var searchClear = document.getElementById("search-clear");
+      var clientGroupFilter = document.getElementById("client-group-filter");
       var filterBtns = document.querySelectorAll(".filter-pill[data-filter]");
       var statBtns = document.querySelectorAll(".stat-card[data-stat-filter]");
       var sortBtns = document.querySelectorAll(".sort-btn[data-sort-table]");
       var tbody = document.getElementById("clients-tbody");
+      var clientsSelectAll = document.getElementById("clients-select-all");
+      var batchBar = document.getElementById("clients-batch-bar");
+      var batchSelectedCount = document.getElementById("batch-selected-count");
+      var batchGroupSelect = document.getElementById("batch-group-select");
+      var batchClearOverride = document.getElementById("batch-clear-override");
+      var batchAssignGroupBtn = document.getElementById("batch-assign-group-btn");
+      var batchClearSelectionBtn = document.getElementById("batch-clear-selection-btn");
       var filterEmpty = document.getElementById("filter-empty");
       var clearFiltersBtn = document.getElementById("clear-filters-btn");
+
+      var groupSearchInput = document.getElementById("group-search");
+      var groupSearchClear = document.getElementById("group-search-clear");
+      var newGroupBtn = document.getElementById("new-group-btn");
+      var groupsTbody = document.getElementById("groups-tbody");
+      var groupFilterEmpty = document.getElementById("group-filter-empty");
+      var clearGroupFiltersBtn = document.getElementById("clear-group-filters-btn");
+      var canaryGroupsBannerList = document.getElementById("canary-groups-banner-list");
+      var gotoGroupsBtn = document.getElementById("goto-groups-btn");
 
       var versionSearchInput = document.getElementById("version-search");
       var versionSearchClear = document.getElementById("version-search-clear");
@@ -1809,28 +2208,63 @@
       var tabBtns = document.querySelectorAll(".view-tab");
       var tabPanels = {
         clients: document.getElementById("tab-clients"),
+        groups: document.getElementById("tab-groups"),
         versions: document.getElementById("tab-versions"),
         canary: document.getElementById("tab-canary")
       };
       var versionsTbody = document.getElementById("versions-tbody");
       var distributionPanel = document.getElementById("distribution-panel");
 
+      var defaultGroupsSelectAll = document.getElementById("default-groups-select-all");
+      var defaultGroupsClearAll = document.getElementById("default-groups-clear-all");
+      var defaultGroupsSyncActive = document.getElementById("default-groups-sync-active");
+      var defaultGroupsSaveBtn = document.getElementById("default-groups-save-btn");
       var defaultCanaryAddForm = document.getElementById("default-canary-add-form");
       var defaultCanaryUidInput = document.getElementById("default-canary-uid");
       var defaultCanaryNoteInput = document.getElementById("default-canary-note");
       var defaultPickerSearch = document.getElementById("default-picker-search");
+      var defaultPickerGroupFilter = document.getElementById("default-picker-group-filter");
       var defaultPickerAddBtn = document.getElementById("default-picker-add-btn");
-      var defaultPickerList = document.getElementById("default-picker-list");
+      var defaultPickerSelectAll = document.getElementById("default-picker-select-all");
+      var defaultPickerTbody = document.getElementById("default-picker-tbody");
+      var defaultPickerFilterEmpty = document.getElementById("default-picker-filter-empty");
       var defaultCanarySearch = document.getElementById("default-canary-search");
       var defaultCanarySearchClear = document.getElementById("default-canary-search-clear");
+      var defaultCanaryGroupFilter = document.getElementById("default-canary-group-filter");
+      var defaultCanarySelectAll = document.getElementById("default-canary-select-all");
+      var defaultCanaryRemoveSelectedBtn = document.getElementById("default-canary-remove-selected-btn");
       var defaultCanaryTbody = document.getElementById("default-canary-tbody");
       var defaultCanaryFilterEmpty = document.getElementById("default-canary-filter-empty");
       var clearDefaultCanaryFilterBtn = document.getElementById("clear-default-canary-filter-btn");
 
+      var groupModal = document.getElementById("group-modal");
+      var groupModalTitle = document.getElementById("group-modal-title");
+      var groupModalClose = document.getElementById("group-modal-close");
+      var groupModalForm = document.getElementById("group-modal-form");
+      var groupFormId = document.getElementById("group-form-id");
+      var groupFormName = document.getElementById("group-form-name");
+      var groupColorSwatches = document.querySelectorAll("#group-color-swatches .color-swatch");
+      var groupFormColor = document.getElementById("group-form-color");
+      var groupFormNote = document.getElementById("group-form-note");
+      var groupFormAutoIssue = document.getElementById("group-form-auto-issue");
+      var groupFormCanaryDefault = document.getElementById("group-form-canary-default");
+      var groupFormSyncCanaryWrap = document.getElementById("group-form-sync-canary-wrap");
+      var groupFormSyncCanary = document.getElementById("group-form-sync-canary");
+      var groupFormDuration = document.getElementById("group-form-duration");
+      var groupDurPresets = document.querySelectorAll(".group-dur-preset");
+      var groupFormCancel = document.getElementById("group-form-cancel");
+      var groupFormSubmit = document.getElementById("group-form-submit");
+
       var canaryModal = document.getElementById("canary-modal");
       var canaryModalVersion = document.getElementById("canary-modal-version");
       var canaryModalStageBadge = document.getElementById("canary-modal-stage-badge");
+      var canaryModalEffectiveSummary = document.getElementById("canary-modal-effective-summary");
       var canaryModalClose = document.getElementById("canary-modal-close");
+      var modalGroupsSelectAll = document.getElementById("modal-groups-select-all");
+      var modalGroupsClearAll = document.getElementById("modal-groups-clear-all");
+      var modalGroupsUseDefaultBtn = document.getElementById("modal-groups-use-default-btn");
+      var modalSaveGroupsBtn = document.getElementById("modal-save-groups-btn");
+      var modalCanaryGroupsList = document.getElementById("modal-canary-groups-list");
       var modalSaveDefaultBtn = document.getElementById("modal-save-default-btn");
       var modalInheritSource = document.getElementById("modal-inherit-source");
       var modalInheritMode = document.getElementById("modal-inherit-mode");
@@ -1838,11 +2272,17 @@
       var modalAddUidForm = document.getElementById("modal-add-uid-form");
       var modalAddUidInput = document.getElementById("modal-add-uid-input");
       var modalPickerSearch = document.getElementById("modal-picker-search");
+      var modalPickerGroupFilter = document.getElementById("modal-picker-group-filter");
       var modalPickerAddBtn = document.getElementById("modal-picker-add-btn");
-      var modalPickerList = document.getElementById("modal-picker-list");
+      var modalPickerSelectAll = document.getElementById("modal-picker-select-all");
+      var modalPickerTbody = document.getElementById("modal-picker-tbody");
+      var modalPickerFilterEmpty = document.getElementById("modal-picker-filter-empty");
       var modalMembersCount = document.getElementById("modal-members-count");
       var modalMembersSearch = document.getElementById("modal-members-search");
       var modalMembersSearchClear = document.getElementById("modal-members-search-clear");
+      var modalMembersGroupFilter = document.getElementById("modal-members-group-filter");
+      var modalMembersSelectAll = document.getElementById("modal-members-select-all");
+      var modalMembersRemoveSelectedBtn = document.getElementById("modal-members-remove-selected-btn");
       var modalMembersTbody = document.getElementById("modal-members-tbody");
       var modalMembersFilterEmpty = document.getElementById("modal-members-filter-empty");
       var clearModalMembersFilterBtn = document.getElementById("clear-modal-members-filter-btn");
@@ -1873,10 +2313,11 @@
       var uploadCancelBtn = document.getElementById("upload-cancel-btn");
 
       function resolveInitialTab() {
+        if (window.location.hash === "#groups") return "groups";
         if (window.location.hash === "#versions") return "versions";
         if (window.location.hash === "#canary") return "canary";
         var saved = storageGet("perflens-admin-tab", "clients");
-        return (saved === "versions" || saved === "canary") ? saved : "clients";
+        return (saved === "groups" || saved === "versions" || saved === "canary") ? saved : "clients";
       }
 
       var DESC_DEFAULT_SORT_KEYS = {
@@ -1884,6 +2325,8 @@
         lastSeen: true,
         expiresAt: true,
         autoIssue: true,
+        memberCount: true,
+        canaryDefault: true,
         version: true,
         publishedAt: true,
         installerBytes: true,
@@ -1899,15 +2342,27 @@
         tzMode: storageGet("perflens-admin-tz", "local") === "utc" ? "utc" : "local",
         activeTab: resolveInitialTab(),
         search: "",
+        clientGroupFilter: "all",
         filter: "all",
+        groupSearch: "",
         versionSearch: "",
         versionFilter: "all",
         canarySearch: "",
+        defaultCanaryGroupFilter: "all",
+        defaultPickerGroupFilter: "all",
         modalSearch: "",
+        modalMembersGroupFilter: "all",
+        modalPickerGroupFilter: "all",
+        selectedClientUids: new Set(),
+        selectedDefaultCanaryUids: new Set(),
+        selectedModalMemberUids: new Set(),
         sorts: {
           clients: { key: "lastSeen", dir: "desc" },
+          groups: { key: "memberCount", dir: "desc" },
           versions: { key: "version", dir: "desc" },
+          "default-picker": { key: "computer", dir: "asc" },
           "default-canary": { key: "addedAt", dir: "desc" },
+          "modal-picker": { key: "computer", dir: "asc" },
           "modal-members": { key: "addedAt", dir: "desc" }
         },
         expandedUids: new Set(),
@@ -1918,6 +2373,7 @@
         version: null,
         stage: "canary",
         members: [],
+        groups: [],
         busy: false
       };
 
@@ -2173,6 +2629,8 @@
         enhanceUidTable(tbody);
         enhanceUidTable(defaultCanaryTbody);
         enhanceUidTable(modalMembersTbody);
+        enhanceUidTable(defaultPickerTbody);
+        enhanceUidTable(modalPickerTbody);
       }
 
       var NUMERIC_SORT_ATTRS = {
@@ -2185,7 +2643,11 @@
         unpackedBytes: "data-unpacked-bytes",
         clientCount: "data-client-count",
         canaryCount: "data-canary-count",
-        addedAt: "data-added-at"
+        addedAt: "data-added-at",
+        memberCount: "data-member-count",
+        canaryDefault: "data-canary-default",
+        groupDuration: "data-duration",
+        canaryStatus: "data-canary-status"
       };
 
       var TEXT_SORT_ATTRS = {
@@ -2296,6 +2758,13 @@
           else res = compareVersions(vA, vB);
         } else if (key === "stage") {
           res = getVersionStageRank(rowA) - getVersionStageRank(rowB);
+        } else if (key === "groupName") {
+          var gA = rowA.getAttribute("data-group-name") || rowA.getAttribute("data-name") || "";
+          var gB = rowB.getAttribute("data-group-name") || rowB.getAttribute("data-name") || "";
+          if (!gA && !gB) res = 0;
+          else if (!gA) return 1;
+          else if (!gB) return -1;
+          else res = gA.localeCompare(gB, "zh-CN");
         } else if (TEXT_SORT_ATTRS[key]) {
           var txtAttr = TEXT_SORT_ATTRS[key];
           var sA = rowA.getAttribute(txtAttr) || "";
@@ -2305,8 +2774,8 @@
           else if (!sB) return -1;
           else res = sA.localeCompare(sB, "zh-CN");
         } else {
-          var uA = rowA.getAttribute("data-uid") || "";
-          var uB = rowB.getAttribute("data-uid") || "";
+          var uA = rowA.getAttribute("data-uid") || rowA.getAttribute("data-group-id") || "";
+          var uB = rowB.getAttribute("data-uid") || rowB.getAttribute("data-group-id") || "";
           res = uA.localeCompare(uB);
         }
 
@@ -2315,7 +2784,8 @@
           if (uidTie !== 0) {
             res = uidTie;
           } else {
-            res = compareVersions(rowA.getAttribute("data-version") || "", rowB.getAttribute("data-version") || "");
+            var gidTie = (rowA.getAttribute("data-group-id") || "").localeCompare(rowB.getAttribute("data-group-id") || "");
+            res = gidTie !== 0 ? gidTie : compareVersions(rowA.getAttribute("data-version") || "", rowB.getAttribute("data-version") || "");
           }
         }
         return res * factor;
@@ -2355,17 +2825,51 @@
         return rows;
       }
 
+      function syncBatchBarUI() {
+        var visibleCbs = [];
+        var rows = tbody.querySelectorAll("tr");
+        var existingUids = new Set();
+        for (var i = 0; i < rows.length; i++) {
+          var uid = rows[i].getAttribute("data-uid") || "";
+          if (uid) existingUids.add(uid);
+          if (!rows[i].hidden) {
+            var cb = rows[i].querySelector(".client-select-cb");
+            if (cb) visibleCbs.push(cb);
+          }
+        }
+        state.selectedClientUids.forEach(function (uid) {
+          if (!existingUids.has(uid)) state.selectedClientUids.delete(uid);
+        });
+        var selectedCount = state.selectedClientUids.size;
+        if (batchSelectedCount) batchSelectedCount.textContent = String(selectedCount);
+        if (batchBar) batchBar.hidden = selectedCount === 0;
+        if (batchAssignGroupBtn) batchAssignGroupBtn.disabled = selectedCount === 0 || !batchGroupSelect || !batchGroupSelect.value;
+
+        if (clientsSelectAll) {
+          var checkedVisible = 0;
+          for (var j = 0; j < visibleCbs.length; j++) {
+            if (visibleCbs[j].checked) checkedVisible++;
+          }
+          clientsSelectAll.disabled = visibleCbs.length === 0;
+          clientsSelectAll.checked = visibleCbs.length > 0 && checkedVisible === visibleCbs.length;
+          clientsSelectAll.indeterminate = checkedVisible > 0 && checkedVisible < visibleCbs.length;
+        }
+      }
+
       function applyView() {
         var now = currentServerNow();
         var rows = sortTableBody(tbody, "clients");
         var query = state.search.trim().toLowerCase();
 
-        var counts = { all: rows.length, enabled: 0, disabled: 0, active: 0, expired: 0, canary: 0 };
+        var counts = { all: rows.length, enabled: 0, disabled: 0, override: 0, active: 0, expired: 0, canary: 0 };
         var visibleCount = 0;
 
         for (var i = 0; i < rows.length; i++) {
           var row = rows[i];
+          var uid = row.getAttribute("data-uid") || "";
           var autoIssue = row.getAttribute("data-auto-issue") === "1";
+          var isOverride = row.getAttribute("data-override") === "1";
+          var groupId = row.getAttribute("data-group-id") || "";
           var inCanary = row.getAttribute("data-canary") === "1";
           var expRaw = row.getAttribute("data-expires-at");
           var exp = expRaw ? parseInt(expRaw, 10) : null;
@@ -2373,6 +2877,7 @@
 
           if (autoIssue) counts.enabled++;
           else counts.disabled++;
+          if (isOverride) counts.override++;
           if (isActive) counts.active++;
           else counts.expired++;
           if (inCanary) counts.canary++;
@@ -2380,24 +2885,33 @@
           var filterMatch = state.filter === "all" ||
             (state.filter === "enabled" && autoIssue) ||
             (state.filter === "disabled" && !autoIssue) ||
+            (state.filter === "override" && isOverride) ||
             (state.filter === "active" && isActive) ||
             (state.filter === "expired" && !isActive) ||
             (state.filter === "canary" && inCanary);
 
+          var groupMatch = state.clientGroupFilter === "all" || groupId === state.clientGroupFilter;
+
           var searchMatch = true;
           if (query) {
             var haystack = (
-              (row.getAttribute("data-uid") || "") + " " +
+              uid + " " +
               (row.getAttribute("data-computer") || "") + " " +
               (row.getAttribute("data-ip") || "") + " " +
-              (row.getAttribute("data-version") || "")
+              (row.getAttribute("data-version") || "") + " " +
+              (row.getAttribute("data-group-name") || "")
             ).toLowerCase();
             searchMatch = haystack.indexOf(query) !== -1;
           }
 
-          var shown = filterMatch && searchMatch;
+          var shown = filterMatch && groupMatch && searchMatch;
           row.hidden = !shown;
           if (shown) visibleCount++;
+
+          var cb = row.querySelector(".client-select-cb");
+          if (cb) {
+            cb.checked = uid ? state.selectedClientUids.has(uid) : false;
+          }
         }
 
         document.getElementById("clients-count").textContent = String(counts.all);
@@ -2405,6 +2919,7 @@
         document.getElementById("stat-enabled").textContent = String(counts.enabled);
         document.getElementById("stat-disabled").textContent = String(counts.disabled);
         document.getElementById("stat-active").textContent = String(counts.active);
+        if (clientGroupFilter) clientGroupFilter.value = state.clientGroupFilter;
 
         var countBadges = document.querySelectorAll("[data-count-for]");
         for (var c = 0; c < countBadges.length; c++) {
@@ -2426,6 +2941,50 @@
 
         searchClear.hidden = state.search.length === 0;
         filterEmpty.hidden = !(rows.length > 0 && visibleCount === 0);
+        syncBatchBarUI();
+      }
+
+      function applyGroupsView() {
+        var rows = sortTableBody(groupsTbody, "groups");
+        var query = state.groupSearch.trim().toLowerCase();
+        var visibleCount = 0;
+        var issueCount = 0;
+        var canaryCount = 0;
+        var customDurCount = 0;
+
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          if (row.getAttribute("data-auto-issue") === "1") issueCount++;
+          if (row.getAttribute("data-canary-default") === "1") canaryCount++;
+          if ((row.getAttribute("data-duration") || "") !== "") customDurCount++;
+
+          var shown = true;
+          if (query) {
+            var hay = (
+              (row.getAttribute("data-name") || "") + " " +
+              (row.getAttribute("data-note") || "")
+            ).toLowerCase();
+            shown = hay.indexOf(query) !== -1;
+          }
+          row.hidden = !shown;
+          if (shown) visibleCount++;
+        }
+
+        var groupStatMap = {
+          "tab-groups-count": rows.length,
+          "groups-count": rows.length,
+          "stat-groups-total": rows.length,
+          "stat-groups-issue": issueCount,
+          "stat-groups-canary": canaryCount,
+          "stat-groups-duration": customDurCount
+        };
+        for (var gId in groupStatMap) {
+          var gEl = document.getElementById(gId);
+          if (gEl) gEl.textContent = String(groupStatMap[gId]);
+        }
+
+        if (groupSearchClear) groupSearchClear.hidden = state.groupSearch.length === 0;
+        if (groupFilterEmpty) groupFilterEmpty.hidden = !(rows.length > 0 && visibleCount === 0);
       }
 
       function applyVersionsView() {
@@ -2490,70 +3049,143 @@
         if (versionFilterEmpty) versionFilterEmpty.hidden = !(rows.length > 0 && visibleCount === 0);
       }
 
+      function syncMultiSelectTableUI(tableBody, selectedSet, selectAllEl, removeBtnEl) {
+        if (!tableBody) return;
+        var rows = tableBody.querySelectorAll("tr");
+        var existingUids = new Set();
+        var visibleCbs = [];
+        for (var i = 0; i < rows.length; i++) {
+          var uid = rows[i].getAttribute("data-uid") || "";
+          if (uid) existingUids.add(uid);
+          var cb = rows[i].querySelector('input[type="checkbox"]');
+          if (cb) {
+            cb.checked = uid ? selectedSet.has(uid) : false;
+            if (!rows[i].hidden) visibleCbs.push(cb);
+          }
+        }
+        selectedSet.forEach(function (uid) {
+          if (!existingUids.has(uid)) selectedSet.delete(uid);
+        });
+        var selectedCount = selectedSet.size;
+        if (removeBtnEl) {
+          removeBtnEl.disabled = selectedCount === 0;
+          removeBtnEl.textContent = "批量移出所选 (" + selectedCount + ")";
+        }
+        if (selectAllEl) {
+          var checkedVisible = 0;
+          for (var j = 0; j < visibleCbs.length; j++) {
+            if (visibleCbs[j].checked) checkedVisible++;
+          }
+          selectAllEl.disabled = visibleCbs.length === 0;
+          selectAllEl.checked = visibleCbs.length > 0 && checkedVisible === visibleCbs.length;
+          selectAllEl.indeterminate = checkedVisible > 0 && checkedVisible < visibleCbs.length;
+        }
+      }
+
       function applyDefaultCanaryView() {
         var rows = sortTableBody(defaultCanaryTbody, "default-canary");
         var query = state.canarySearch.trim().toLowerCase();
+        var groupFilter = state.defaultCanaryGroupFilter || "all";
         var visibleCount = 0;
         for (var i = 0; i < rows.length; i++) {
           var row = rows[i];
-          var shown = true;
+          var rowGid = row.getAttribute("data-group-id") || "none";
+          var groupMatch = groupFilter === "all" || rowGid === groupFilter;
+          var searchMatch = true;
           if (query) {
-            var devText = row.cells && row.cells[1] ? row.cells[1].textContent : "";
+            var devText = row.cells && row.cells[3] ? row.cells[3].textContent : "";
             var hay = (
               (row.getAttribute("data-uid") || "") + " " +
               (row.getAttribute("data-computer") || "") + " " +
               (row.getAttribute("data-ip") || "") + " " +
               (row.getAttribute("data-note") || "") + " " +
+              (row.getAttribute("data-group-name") || "") + " " +
               devText
             ).toLowerCase();
-            shown = hay.indexOf(query) !== -1;
+            searchMatch = hay.indexOf(query) !== -1;
           }
+          var shown = groupMatch && searchMatch;
           row.hidden = !shown;
           if (shown) visibleCount++;
         }
+        if (defaultCanaryGroupFilter) defaultCanaryGroupFilter.value = groupFilter;
         if (defaultCanarySearchClear) defaultCanarySearchClear.hidden = state.canarySearch.length === 0;
         if (defaultCanaryFilterEmpty) defaultCanaryFilterEmpty.hidden = !(rows.length > 0 && visibleCount === 0);
+        syncMultiSelectTableUI(defaultCanaryTbody, state.selectedDefaultCanaryUids, defaultCanarySelectAll, defaultCanaryRemoveSelectedBtn);
       }
 
       function applyModalMembersView() {
         var rows = sortTableBody(modalMembersTbody, "modal-members");
         var query = state.modalSearch.trim().toLowerCase();
+        var groupFilter = state.modalMembersGroupFilter || "all";
         var visibleCount = 0;
         for (var i = 0; i < rows.length; i++) {
           var row = rows[i];
-          var shown = true;
+          var rowGid = row.getAttribute("data-group-id") || "none";
+          var groupMatch = groupFilter === "all" || rowGid === groupFilter;
+          var searchMatch = true;
           if (query) {
             var hay = (
               (row.getAttribute("data-uid") || "") + " " +
+              (row.getAttribute("data-group-name") || "") + " " +
               (row.getAttribute("data-device") || "")
             ).toLowerCase();
-            shown = hay.indexOf(query) !== -1;
+            searchMatch = hay.indexOf(query) !== -1;
           }
+          var shown = groupMatch && searchMatch;
           row.hidden = !shown;
           if (shown) visibleCount++;
         }
+        if (modalMembersGroupFilter) modalMembersGroupFilter.value = groupFilter;
         if (modalMembersSearchClear) modalMembersSearchClear.hidden = state.modalSearch.length === 0;
         if (modalMembersFilterEmpty) modalMembersFilterEmpty.hidden = !(rows.length > 0 && visibleCount === 0);
+        syncMultiSelectTableUI(modalMembersTbody, state.selectedModalMemberUids, modalMembersSelectAll, modalMembersRemoveSelectedBtn);
       }
 
       function applyTableById(tableId) {
         if (tableId === "clients") applyView();
+        else if (tableId === "groups") applyGroupsView();
         else if (tableId === "versions") applyVersionsView();
+        else if (tableId === "default-picker") applyDefaultPickerView();
         else if (tableId === "default-canary") applyDefaultCanaryView();
+        else if (tableId === "modal-picker") applyModalPickerView();
         else if (tableId === "modal-members") applyModalMembersView();
+      }
+
+      function syncSelectOptionsKeepValue(selectEl, nextSelectEl, currentVal, fallbackVal) {
+        if (!selectEl || !nextSelectEl) return currentVal;
+        selectEl.innerHTML = nextSelectEl.innerHTML;
+        var hasVal = false;
+        for (var i = 0; i < selectEl.options.length; i++) {
+          if (selectEl.options[i].value === currentVal) {
+            hasVal = true;
+            break;
+          }
+        }
+        var nextVal = hasVal ? currentVal : fallbackVal;
+        selectEl.value = nextVal;
+        return nextVal;
       }
 
       function syncFromHtml(htmlText, options) {
         var doc = new DOMParser().parseFromString(htmlText, "text/html");
         var nextRoot = doc.getElementById("app-root");
         var nextTbody = doc.getElementById("clients-tbody");
+        var nextGroupsTbody = doc.getElementById("groups-tbody");
         var nextPolicyForm = doc.getElementById("policy-form");
         var nextVersion = doc.querySelector("#latest-version-pill strong");
         var nextCanaryWrap = doc.getElementById("latest-canary-pill-wrap");
         var nextVersionsTbody = doc.getElementById("versions-tbody");
         var nextDistributionPanel = doc.getElementById("distribution-panel");
         var nextDefaultCanaryTbody = doc.getElementById("default-canary-tbody");
-        if (!nextRoot || !nextTbody || !nextPolicyForm || !nextVersionsTbody || !nextDistributionPanel || !nextDefaultCanaryTbody) {
+        var nextBannerList = doc.getElementById("canary-groups-banner-list");
+        var nextClientGroupFilter = doc.getElementById("client-group-filter");
+        var nextDefaultPickerGroupFilter = doc.getElementById("default-picker-group-filter");
+        var nextDefaultCanaryGroupFilter = doc.getElementById("default-canary-group-filter");
+        var nextModalPickerGroupFilter = doc.getElementById("modal-picker-group-filter");
+        var nextModalMembersGroupFilter = doc.getElementById("modal-members-group-filter");
+        var nextBatchGroupSelect = doc.getElementById("batch-group-select");
+        if (!nextRoot || !nextTbody || !nextGroupsTbody || !nextPolicyForm || !nextVersionsTbody || !nextDistributionPanel || !nextDefaultCanaryTbody) {
           throw new Error("页面响应格式异常");
         }
 
@@ -2569,6 +3201,10 @@
         var nextDefaultCount = nextRoot.getAttribute("data-default-canary-count");
         if (nextDefaultCount !== null) {
           appRoot.setAttribute("data-default-canary-count", nextDefaultCount);
+        }
+        var nextGroupsJson = nextRoot.getAttribute("data-groups");
+        if (nextGroupsJson !== null) {
+          appRoot.setAttribute("data-groups", nextGroupsJson);
         }
 
         var nextCsrf = nextPolicyForm.querySelector('input[name="csrf"]');
@@ -2597,8 +3233,14 @@
 
         var syncTextIds = [
           "tab-clients-count",
+          "tab-groups-count",
           "tab-versions-count",
           "tab-canary-count",
+          "stat-groups-total",
+          "stat-groups-issue",
+          "stat-groups-canary",
+          "stat-groups-duration",
+          "groups-count",
           "stat-ver-total",
           "stat-ver-canary",
           "stat-ver-released",
@@ -2615,13 +3257,28 @@
           }
         }
 
+        state.clientGroupFilter = syncSelectOptionsKeepValue(clientGroupFilter, nextClientGroupFilter, state.clientGroupFilter, "all");
+        state.defaultPickerGroupFilter = syncSelectOptionsKeepValue(defaultPickerGroupFilter, nextDefaultPickerGroupFilter, defaultPickerGroupFilter ? defaultPickerGroupFilter.value : "all", "all");
+        state.defaultCanaryGroupFilter = syncSelectOptionsKeepValue(defaultCanaryGroupFilter, nextDefaultCanaryGroupFilter, state.defaultCanaryGroupFilter, "all");
+        state.modalPickerGroupFilter = syncSelectOptionsKeepValue(modalPickerGroupFilter, nextModalPickerGroupFilter, modalPickerGroupFilter ? modalPickerGroupFilter.value : "all", "all");
+        state.modalMembersGroupFilter = syncSelectOptionsKeepValue(modalMembersGroupFilter, nextModalMembersGroupFilter, state.modalMembersGroupFilter, "all");
+        if (batchGroupSelect && nextBatchGroupSelect) {
+          var prevBatchVal = batchGroupSelect.value;
+          syncSelectOptionsKeepValue(batchGroupSelect, nextBatchGroupSelect, prevBatchVal, batchGroupSelect.options[0] ? batchGroupSelect.options[0].value : "");
+        }
+        if (canaryGroupsBannerList && nextBannerList) {
+          canaryGroupsBannerList.innerHTML = nextBannerList.innerHTML;
+        }
+
         tbody.innerHTML = nextTbody.innerHTML;
+        groupsTbody.innerHTML = nextGroupsTbody.innerHTML;
         versionsTbody.innerHTML = nextVersionsTbody.innerHTML;
         distributionPanel.innerHTML = nextDistributionPanel.innerHTML;
         defaultCanaryTbody.innerHTML = nextDefaultCanaryTbody.innerHTML;
         enhanceRows();
         enhanceVersionRows();
         applyView();
+        applyGroupsView();
         applyVersionsView();
         applyDefaultCanaryView();
         refreshVisibleTableLayouts();
@@ -2945,7 +3602,7 @@
       }
 
       function setActiveTab(tab) {
-        var nextTab = (tab === "versions" || tab === "canary") ? tab : "clients";
+        var nextTab = (tab === "groups" || tab === "versions" || tab === "canary") ? tab : "clients";
         state.activeTab = nextTab;
         storageSet("perflens-admin-tab", nextTab);
         for (var i = 0; i < tabBtns.length; i++) {
@@ -2953,9 +3610,15 @@
           btn.setAttribute("aria-selected", String(btn.getAttribute("data-tab") === nextTab));
         }
         tabPanels.clients.hidden = nextTab !== "clients";
+        if (tabPanels.groups) tabPanels.groups.hidden = nextTab !== "groups";
         tabPanels.versions.hidden = nextTab !== "versions";
         tabPanels.canary.hidden = nextTab !== "canary";
-        refreshTableLayout(nextTab === "canary" ? "default-canary" : nextTab);
+        if (nextTab === "canary") {
+          refreshTableLayout("default-canary");
+          refreshTableLayout("default-picker");
+        } else {
+          refreshTableLayout(nextTab);
+        }
         if (window.history && window.history.replaceState) {
           window.history.replaceState(null, "", "#" + nextTab);
         }
@@ -2992,86 +3655,65 @@
         });
       }
 
+      function getGroupMetaMap() {
+        var map = {};
+        try {
+          var list = JSON.parse(appRoot.getAttribute("data-groups") || "[]");
+          if (Array.isArray(list)) {
+            for (var i = 0; i < list.length; i++) {
+              map[String(list[i].id)] = list[i];
+            }
+          }
+        } catch (e) {}
+        return map;
+      }
+
+      function buildGroupPillNode(groupName, groupColor) {
+        if (!groupName) {
+          var empty = document.createElement("span");
+          empty.className = "muted-note";
+          empty.textContent = "未激活 / 未分组";
+          return empty;
+        }
+        var pill = document.createElement("span");
+        pill.className = "group-pill-mini";
+        var dot = document.createElement("span");
+        dot.className = "group-dot";
+        dot.style.background = groupColor || "#2563eb";
+        var txt = document.createElement("span");
+        txt.textContent = groupName;
+        pill.appendChild(dot);
+        pill.appendChild(txt);
+        return pill;
+      }
+
       function getRegisteredClients() {
+        var groupMap = getGroupMetaMap();
         var rows = tbody.querySelectorAll("tr");
         var list = [];
         for (var i = 0; i < rows.length; i++) {
           var row = rows[i];
           var uid = row.getAttribute("data-uid") || "";
           if (!uid) continue;
+          var groupId = row.getAttribute("data-group-id") || "";
+          var gMeta = groupMap[groupId] || null;
           list.push({
             uid: uid,
             computer: row.getAttribute("data-computer") || "",
             ip: row.getAttribute("data-ip") || "",
             version: row.getAttribute("data-version") || "",
+            groupId: groupId,
+            groupName: (gMeta && gMeta.name) || row.getAttribute("data-group-name") || "",
+            groupColor: (gMeta && gMeta.color) || "#64748b",
             inDefault: row.getAttribute("data-canary") === "1"
           });
         }
         return list;
       }
 
-      function renderClientPicker(containerEl, searchValue, excludedUids, addBtnEl) {
-        if (!containerEl || !addBtnEl) return;
-        var prevChecked = new Set();
-        var checkedInputs = containerEl.querySelectorAll('input[type="checkbox"]:checked');
-        for (var c = 0; c < checkedInputs.length; c++) {
-          prevChecked.add(checkedInputs[c].value);
-        }
-        var clients = getRegisteredClients();
-        var query = (searchValue || "").trim().toLowerCase();
-        containerEl.innerHTML = "";
-        var visibleCount = 0;
-        for (var i = 0; i < clients.length; i++) {
-          var item = clients[i];
-          if (query) {
-            var haystack = (item.uid + " " + item.computer + " " + item.ip + " " + item.version).toLowerCase();
-            if (haystack.indexOf(query) === -1) continue;
-          }
-          visibleCount++;
-          var already = excludedUids.has(item.uid);
-          var label = document.createElement("label");
-          label.className = "picker-item" + (already ? " is-disabled" : "");
-          var cb = document.createElement("input");
-          cb.type = "checkbox";
-          cb.value = item.uid;
-          cb.disabled = already;
-          cb.checked = !already && prevChecked.has(item.uid);
-          var meta = document.createElement("div");
-          meta.className = "picker-meta";
-          var titleSpan = document.createElement("span");
-          titleSpan.textContent = item.computer || "未上报设备名";
-          var uidSpan = document.createElement("span");
-          uidSpan.className = "picker-uid";
-          uidSpan.textContent = shortUid(item.uid);
-          meta.appendChild(titleSpan);
-          meta.appendChild(uidSpan);
-          if (item.ip) {
-            var ipSpan = document.createElement("span");
-            ipSpan.className = "muted-note";
-            ipSpan.textContent = item.ip;
-            meta.appendChild(ipSpan);
-          }
-          if (already) {
-            var tag = document.createElement("span");
-            tag.className = "badge badge-canary";
-            tag.textContent = "已在名单";
-            meta.appendChild(tag);
-          }
-          label.appendChild(cb);
-          label.appendChild(meta);
-          containerEl.appendChild(label);
-        }
-        if (visibleCount === 0) {
-          var empty = document.createElement("div");
-          empty.className = "picker-empty";
-          empty.textContent = clients.length === 0 ? "暂无已登记客户端" : "没有匹配的已登记客户端";
-          containerEl.appendChild(empty);
-        }
-        updatePickerAddButton(containerEl, addBtnEl);
-      }
-
-      function getSelectedPickerUids(containerEl) {
-        var inputs = containerEl.querySelectorAll('input[type="checkbox"]:checked:not(:disabled)');
+      function getSelectedPickerUids(tbodyEl) {
+        if (!tbodyEl) return [];
+        var inputs = tbodyEl.querySelectorAll('input.picker-row-cb:checked:not(:disabled)');
         var uids = [];
         for (var i = 0; i < inputs.length; i++) {
           uids.push(inputs[i].value);
@@ -3079,10 +3721,144 @@
         return uids;
       }
 
-      function updatePickerAddButton(containerEl, addBtnEl) {
-        var selectedCount = getSelectedPickerUids(containerEl).length;
-        addBtnEl.disabled = selectedCount === 0;
-        addBtnEl.textContent = "批量加入所选 (" + selectedCount + ")";
+      function updatePickerSelectionUI(cfg) {
+        if (!cfg || !cfg.tbodyEl) return;
+        var selectedCount = getSelectedPickerUids(cfg.tbodyEl).length;
+        if (cfg.addBtnEl) {
+          cfg.addBtnEl.disabled = selectedCount === 0;
+          cfg.addBtnEl.textContent = "批量加入所选 (" + selectedCount + ")";
+        }
+        if (cfg.selectAllEl) {
+          var rows = cfg.tbodyEl.querySelectorAll("tr");
+          var eligibleCbs = [];
+          var checkedVisible = 0;
+          for (var i = 0; i < rows.length; i++) {
+            if (rows[i].hidden) continue;
+            var cb = rows[i].querySelector("input.picker-row-cb:not(:disabled)");
+            if (cb) {
+              eligibleCbs.push(cb);
+              if (cb.checked) checkedVisible++;
+            }
+          }
+          cfg.selectAllEl.disabled = eligibleCbs.length === 0;
+          cfg.selectAllEl.checked = eligibleCbs.length > 0 && checkedVisible === eligibleCbs.length;
+          cfg.selectAllEl.indeterminate = checkedVisible > 0 && checkedVisible < eligibleCbs.length;
+        }
+      }
+
+      function applyPickerTableView(cfg) {
+        if (!cfg || !cfg.tbodyEl) return;
+        var rows = sortTableBody(cfg.tbodyEl, cfg.tableId);
+        var query = (cfg.searchEl ? cfg.searchEl.value : "").trim().toLowerCase();
+        var groupFilter = cfg.groupFilterEl ? (cfg.groupFilterEl.value || "all") : "all";
+        var visibleCount = 0;
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var rowGid = row.getAttribute("data-group-id") || "";
+          var groupMatch = groupFilter === "all" || rowGid === groupFilter;
+          var searchMatch = true;
+          if (query) {
+            var hay = (
+              (row.getAttribute("data-uid") || "") + " " +
+              (row.getAttribute("data-computer") || "") + " " +
+              (row.getAttribute("data-ip") || "") + " " +
+              (row.getAttribute("data-version") || "") + " " +
+              (row.getAttribute("data-group-name") || "")
+            ).toLowerCase();
+            searchMatch = hay.indexOf(query) !== -1;
+          }
+          var shown = groupMatch && searchMatch;
+          row.hidden = !shown;
+          if (shown) visibleCount++;
+        }
+        if (cfg.filterEmptyEl) {
+          cfg.filterEmptyEl.hidden = !(rows.length > 0 && visibleCount === 0);
+        }
+        updatePickerSelectionUI(cfg);
+      }
+
+      function renderPickerTable(cfg) {
+        if (!cfg || !cfg.tbodyEl) return;
+        var prevChecked = new Set(getSelectedPickerUids(cfg.tbodyEl));
+        var clients = getRegisteredClients();
+        cfg.tbodyEl.innerHTML = "";
+        for (var i = 0; i < clients.length; i++) {
+          var item = clients[i];
+          var inExplicit = cfg.excludedUids.has(item.uid);
+          var inGroup = cfg.groupCanarySet.has(item.groupId);
+          var statusCode = inExplicit ? "2" : (inGroup ? "1" : "0");
+
+          var tr = document.createElement("tr");
+          if (inExplicit) tr.className = "is-disabled";
+          tr.setAttribute("data-uid", item.uid);
+          tr.setAttribute("data-computer", item.computer);
+          tr.setAttribute("data-ip", item.ip);
+          tr.setAttribute("data-version", item.version);
+          tr.setAttribute("data-group-id", item.groupId);
+          tr.setAttribute("data-group-name", item.groupName);
+          tr.setAttribute("data-canary-status", statusCode);
+
+          var cbTd = document.createElement("td");
+          cbTd.className = "select-cell";
+          var cb = document.createElement("input");
+          cb.type = "checkbox";
+          cb.className = "picker-row-cb";
+          cb.value = item.uid;
+          cb.disabled = inExplicit;
+          cb.checked = !inExplicit && prevChecked.has(item.uid);
+          cb.setAttribute("aria-label", "选择客户端 " + item.uid);
+          cbTd.appendChild(cb);
+
+          var compTd = document.createElement("td");
+          compTd.className = "computer-name";
+          compTd.textContent = item.computer || "—";
+
+          var uidTd = document.createElement("td");
+          uidTd.className = "uid-cell";
+          var uidCode = document.createElement("code");
+          uidCode.className = "uid-code";
+          uidCode.textContent = item.uid;
+          uidTd.appendChild(uidCode);
+
+          var ipTd = document.createElement("td");
+          ipTd.textContent = item.ip || "—";
+
+          var verTd = document.createElement("td");
+          verTd.textContent = item.version || "—";
+
+          var grpTd = document.createElement("td");
+          grpTd.className = "group-cell";
+          grpTd.appendChild(buildGroupPillNode(item.groupName, item.groupColor));
+
+          var statusTd = document.createElement("td");
+          if (inExplicit) {
+            var bExp = document.createElement("span");
+            bExp.className = "badge badge-canary";
+            bExp.textContent = "已在独立名单";
+            statusTd.appendChild(bExp);
+          } else if (inGroup) {
+            var bGrp = document.createElement("span");
+            bGrp.className = "badge badge-accent";
+            bGrp.textContent = cfg.groupStatusLabel || "所属分组已灰度";
+            statusTd.appendChild(bGrp);
+          } else {
+            var bNone = document.createElement("span");
+            bNone.className = "muted-note";
+            bNone.textContent = "未加入";
+            statusTd.appendChild(bNone);
+          }
+
+          tr.appendChild(cbTd);
+          tr.appendChild(compTd);
+          tr.appendChild(uidTd);
+          tr.appendChild(ipTd);
+          tr.appendChild(verTd);
+          tr.appendChild(grpTd);
+          tr.appendChild(statusTd);
+          cfg.tbodyEl.appendChild(tr);
+        }
+        enhanceUidTable(cfg.tbodyEl);
+        applyPickerTableView(cfg);
       }
 
       function getDefaultCanaryUidSet() {
@@ -3095,8 +3871,38 @@
         return set;
       }
 
+      function getDefaultCanaryGroupSet() {
+        var set = new Set();
+        var groupMap = getGroupMetaMap();
+        for (var gid in groupMap) {
+          if (groupMap[gid] && groupMap[gid].canary_default) {
+            set.add(String(gid));
+          }
+        }
+        return set;
+      }
+
+      function defaultPickerCfg() {
+        return {
+          tableId: "default-picker",
+          tbodyEl: defaultPickerTbody,
+          searchEl: defaultPickerSearch,
+          groupFilterEl: defaultPickerGroupFilter,
+          selectAllEl: defaultPickerSelectAll,
+          addBtnEl: defaultPickerAddBtn,
+          filterEmptyEl: defaultPickerFilterEmpty,
+          excludedUids: getDefaultCanaryUidSet(),
+          groupCanarySet: getDefaultCanaryGroupSet(),
+          groupStatusLabel: "分组默认灰度"
+        };
+      }
+
+      function applyDefaultPickerView() {
+        applyPickerTableView(defaultPickerCfg());
+      }
+
       function renderDefaultClientPicker() {
-        renderClientPicker(defaultPickerList, defaultPickerSearch.value, getDefaultCanaryUidSet(), defaultPickerAddBtn);
+        renderPickerTable(defaultPickerCfg());
       }
 
       function populateInheritOptions(selectEl, versions, options) {
@@ -3734,8 +4540,16 @@
 
       bindSearchControl(searchInput, searchClear, clearFiltersBtn, function (val, resetFilter) {
         state.search = val;
-        if (resetFilter) state.filter = "all";
+        if (resetFilter) {
+          state.filter = "all";
+          state.clientGroupFilter = "all";
+        }
         applyView();
+      });
+
+      bindSearchControl(groupSearchInput, groupSearchClear, clearGroupFiltersBtn, function (val) {
+        state.groupSearch = val;
+        applyGroupsView();
       });
 
       bindSearchControl(versionSearchInput, versionSearchClear, clearVersionFiltersBtn, function (val, resetFilter) {
@@ -3744,13 +4558,15 @@
         applyVersionsView();
       });
 
-      bindSearchControl(defaultCanarySearch, defaultCanarySearchClear, clearDefaultCanaryFilterBtn, function (val) {
+      bindSearchControl(defaultCanarySearch, defaultCanarySearchClear, clearDefaultCanaryFilterBtn, function (val, resetFilter) {
         state.canarySearch = val;
+        if (resetFilter) state.defaultCanaryGroupFilter = "all";
         applyDefaultCanaryView();
       });
 
-      bindSearchControl(modalMembersSearch, modalMembersSearchClear, clearModalMembersFilterBtn, function (val) {
+      bindSearchControl(modalMembersSearch, modalMembersSearchClear, clearModalMembersFilterBtn, function (val, resetFilter) {
         state.modalSearch = val;
+        if (resetFilter) state.modalMembersGroupFilter = "all";
         applyModalMembersView();
       });
 
@@ -3836,18 +4652,42 @@
         return false;
       }
 
-      function renderModalClientPicker() {
+      function modalPickerCfg() {
         var memberSet = new Set();
         for (var i = 0; i < modalState.members.length; i++) {
           memberSet.add(modalState.members[i].uid);
         }
-        renderClientPicker(modalPickerList, modalPickerSearch.value, memberSet, modalPickerAddBtn);
+        var groupSet = new Set();
+        for (var g = 0; g < modalState.groups.length; g++) {
+          if (modalState.groups[g].selected) groupSet.add(String(modalState.groups[g].id));
+        }
+        return {
+          tableId: "modal-picker",
+          tbodyEl: modalPickerTbody,
+          searchEl: modalPickerSearch,
+          groupFilterEl: modalPickerGroupFilter,
+          selectAllEl: modalPickerSelectAll,
+          addBtnEl: modalPickerAddBtn,
+          filterEmptyEl: modalPickerFilterEmpty,
+          excludedUids: memberSet,
+          groupCanarySet: groupSet,
+          groupStatusLabel: "所属分组已关联"
+        };
+      }
+
+      function applyModalPickerView() {
+        applyPickerTableView(modalPickerCfg());
+      }
+
+      function renderModalClientPicker() {
+        renderPickerTable(modalPickerCfg());
       }
 
       function renderCanaryModalPayload(payload) {
         modalState.version = payload.version;
         modalState.stage = payload.stage;
         modalState.members = Array.isArray(payload.members) ? payload.members : [];
+        modalState.groups = Array.isArray(payload.groups) ? payload.groups : [];
         canaryModalVersion.textContent = payload.version;
         if (payload.stage === "released") {
           canaryModalStageBadge.className = "badge badge-ok";
@@ -3860,6 +4700,36 @@
           canaryModalStageBadge.textContent = "已停用";
         }
         appRoot.setAttribute("data-default-canary-count", String(payload.default_count || 0));
+        if (canaryModalEffectiveSummary) {
+          var sum = payload.summary || {};
+          canaryModalEffectiveSummary.textContent = "有效灰度设备 " + (sum.effective_count || 0) + " 台 · 关联分组 " + (sum.group_count || 0) + " 个 · 独立 UID " + (sum.uid_count || 0) + " 台";
+        }
+        if (modalCanaryGroupsList) {
+          modalCanaryGroupsList.innerHTML = "";
+          for (var g = 0; g < modalState.groups.length; g++) {
+            var grp = modalState.groups[g];
+            var gLabel = document.createElement("label");
+            gLabel.className = "group-check-chip";
+            var gCb = document.createElement("input");
+            gCb.type = "checkbox";
+            gCb.value = String(grp.id);
+            gCb.checked = Boolean(grp.selected);
+            gCb.setAttribute("data-canary-default", grp.canary_default ? "1" : "0");
+            var gDot = document.createElement("span");
+            gDot.className = "group-dot";
+            gDot.style.background = grp.color || "#2563eb";
+            var gName = document.createElement("span");
+            gName.textContent = grp.name;
+            var gCount = document.createElement("span");
+            gCount.className = "muted-note";
+            gCount.textContent = "(" + (grp.member_count || 0) + "台)";
+            gLabel.appendChild(gCb);
+            gLabel.appendChild(gDot);
+            gLabel.appendChild(gName);
+            gLabel.appendChild(gCount);
+            modalCanaryGroupsList.appendChild(gLabel);
+          }
+        }
         populateInheritOptions(modalInheritSource, payload.other_versions || [], {
           includeNone: true,
           noneLabel: "清空当前版本名单"
@@ -3875,11 +4745,24 @@
           if (member.note) descParts.push("备注: " + member.note);
           if (member.in_default) descParts.push("[默认名单]");
           var deviceText = descParts.length > 0 ? descParts.join(" · ") : "未注册 UID";
+          var memberGidStr = (member.group_id === null || member.group_id === undefined) ? "none" : String(member.group_id);
+          var memberGname = member.group_name || "";
 
           var tr = document.createElement("tr");
           tr.setAttribute("data-uid", member.uid);
           tr.setAttribute("data-device", descParts.length > 0 ? deviceText : "");
+          tr.setAttribute("data-group-id", memberGidStr);
+          tr.setAttribute("data-group-name", memberGname);
           tr.setAttribute("data-added-at", String(member.added_at));
+
+          var cbTd = document.createElement("td");
+          cbTd.className = "select-cell";
+          var mCb = document.createElement("input");
+          mCb.type = "checkbox";
+          mCb.className = "modal-member-select-cb";
+          mCb.value = member.uid;
+          mCb.setAttribute("aria-label", "选择独立灰度 UID " + member.uid);
+          cbTd.appendChild(mCb);
 
           var uidTd = document.createElement("td");
           uidTd.className = "uid-cell";
@@ -3887,6 +4770,10 @@
           uidCode.className = "uid-code";
           uidCode.textContent = member.uid;
           uidTd.appendChild(uidCode);
+
+          var grpTd = document.createElement("td");
+          grpTd.className = "group-cell";
+          grpTd.appendChild(buildGroupPillNode(memberGname, member.group_color));
 
           var deviceTd = document.createElement("td");
           if (descParts.length > 0) {
@@ -3911,7 +4798,9 @@
           rmBtn.textContent = "移出";
           actTd.appendChild(rmBtn);
 
+          tr.appendChild(cbTd);
           tr.appendChild(uidTd);
+          tr.appendChild(grpTd);
           tr.appendChild(deviceTd);
           tr.appendChild(tsTd);
           tr.appendChild(actTd);
@@ -3921,26 +4810,38 @@
         applyModalMembersView();
         refreshTableLayout("modal-members");
         renderModalClientPicker();
+        refreshTableLayout("modal-picker");
       }
 
       function closeCanaryModal() {
         canaryModal.hidden = true;
         modalState.version = null;
         modalState.members = [];
+        modalState.groups = [];
+        state.selectedModalMemberUids.clear();
       }
 
       function openCanaryModal(version) {
         modalState.version = version;
         modalAddUidInput.value = "";
         modalPickerSearch.value = "";
+        state.modalPickerGroupFilter = "all";
+        if (modalPickerGroupFilter) modalPickerGroupFilter.value = "all";
         state.modalSearch = "";
+        state.modalMembersGroupFilter = "all";
+        if (modalMembersGroupFilter) modalMembersGroupFilter.value = "all";
+        state.selectedModalMemberUids.clear();
         if (modalMembersSearch) modalMembersSearch.value = "";
         canaryModalVersion.textContent = version;
+        if (canaryModalEffectiveSummary) canaryModalEffectiveSummary.textContent = "";
+        if (modalCanaryGroupsList) modalCanaryGroupsList.innerHTML = "";
         modalMembersCount.textContent = "…";
         modalMembersTbody.innerHTML = "";
+        if (modalPickerTbody) modalPickerTbody.innerHTML = "";
         canaryModal.hidden = false;
         applyModalMembersView();
         refreshTableLayout("modal-members");
+        refreshTableLayout("modal-picker");
         sendAdminJson("/admin/updates/" + encodeURIComponent(version) + "/canary", null, "GET").then(function (payload) {
           if (modalState.version !== version) return;
           renderCanaryModalPayload(payload);
@@ -3949,6 +4850,262 @@
           closeCanaryModal();
         });
       }
+
+      function syncGroupColorSwatches(colorHex) {
+        var norm = (colorHex || "").trim().toLowerCase();
+        for (var i = 0; i < groupColorSwatches.length; i++) {
+          var sw = groupColorSwatches[i];
+          var swColor = (sw.getAttribute("data-color") || "").toLowerCase();
+          sw.setAttribute("aria-pressed", String(swColor === norm));
+        }
+      }
+
+      function openGroupModal(groupData) {
+        var isEdit = Boolean(groupData && groupData.id);
+        groupModalTitle.textContent = isEdit ? ("编辑分组：" + (groupData.name || "")) : "新建分组";
+        groupFormId.value = isEdit ? String(groupData.id) : "";
+        groupFormName.value = isEdit ? (groupData.name || "") : "";
+        var color = (isEdit && groupData.color) ? groupData.color : "#2563eb";
+        groupFormColor.value = color;
+        syncGroupColorSwatches(color);
+        groupFormNote.value = isEdit ? (groupData.note || "") : "";
+        groupFormAutoIssue.checked = isEdit ? Boolean(groupData.auto_issue) : true;
+        groupFormCanaryDefault.checked = isEdit ? Boolean(groupData.canary_default) : false;
+        groupFormDuration.value = (isEdit && groupData.duration !== null && groupData.duration !== undefined && groupData.duration !== "") ? String(groupData.duration) : "";
+        if (groupFormSyncCanaryWrap) groupFormSyncCanaryWrap.hidden = !isEdit;
+        if (groupFormSyncCanary) groupFormSyncCanary.checked = false;
+        groupModal.hidden = false;
+        groupFormName.focus();
+      }
+
+      function closeGroupModal() {
+        groupModal.hidden = true;
+        groupFormId.value = "";
+      }
+
+      for (var cs = 0; cs < groupColorSwatches.length; cs++) {
+        groupColorSwatches[cs].addEventListener("click", function () {
+          var c = this.getAttribute("data-color") || "#2563eb";
+          groupFormColor.value = c;
+          syncGroupColorSwatches(c);
+        });
+      }
+      if (groupFormColor) {
+        groupFormColor.addEventListener("input", function () {
+          syncGroupColorSwatches(this.value);
+        });
+      }
+      for (var gp = 0; gp < groupDurPresets.length; gp++) {
+        groupDurPresets[gp].addEventListener("click", function () {
+          groupFormDuration.value = this.getAttribute("data-minutes") || "";
+          groupFormDuration.focus();
+        });
+      }
+      if (newGroupBtn) {
+        newGroupBtn.addEventListener("click", function () {
+          openGroupModal(null);
+        });
+      }
+      if (groupModalClose) groupModalClose.addEventListener("click", closeGroupModal);
+      if (groupFormCancel) groupFormCancel.addEventListener("click", closeGroupModal);
+      if (groupModal) {
+        groupModal.addEventListener("click", function (e) {
+          if (e.target === groupModal) closeGroupModal();
+        });
+      }
+      if (groupModalForm) {
+        groupModalForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+          var name = groupFormName.value.trim();
+          if (!name) {
+            showToast("请输入分组名称", "error");
+            groupFormName.focus();
+            return;
+          }
+          var rawDur = groupFormDuration.value.trim();
+          var durationMinutes = null;
+          if (rawDur !== "") {
+            if (!isDigitsOnly(rawDur) || parseInt(rawDur, 10) < 1) {
+              showToast("自定义有效期必须为正整数分钟或留空", "error");
+              groupFormDuration.focus();
+              return;
+            }
+            durationMinutes = parseInt(rawDur, 10);
+          }
+          var payload = {
+            name: name,
+            color: groupFormColor.value.trim() || "#2563eb",
+            note: groupFormNote.value.trim() || null,
+            auto_issue: Boolean(groupFormAutoIssue.checked),
+            canary_default: Boolean(groupFormCanaryDefault.checked),
+            duration_minutes: durationMinutes
+          };
+          var gid = groupFormId.value.trim();
+          if (gid && groupFormSyncCanary && groupFormSyncCanary.checked) {
+            payload.sync_active_canary = true;
+          }
+          var url = gid ? ("/admin/groups/" + encodeURIComponent(gid)) : "/admin/groups";
+          groupFormSubmit.disabled = true;
+          sendAdminJson(url, payload).then(function (res) {
+            closeGroupModal();
+            showToast((gid ? "已更新分组：" : "已创建分组：") + (res.group ? res.group.name : name), "ok");
+            return refreshAdmin(true);
+          }).catch(function (err) {
+            showToast(err && err.message ? err.message : "保存分组失败", "error");
+          }).finally(function () {
+            groupFormSubmit.disabled = false;
+          });
+        });
+      }
+
+      if (groupsTbody) {
+        groupsTbody.addEventListener("click", function (e) {
+          var filterLink = e.target.closest("[data-filter-group-id]");
+          if (filterLink) {
+            state.clientGroupFilter = filterLink.getAttribute("data-filter-group-id") || "all";
+            setActiveTab("clients");
+            applyView();
+            return;
+          }
+          var editBtn = e.target.closest("[data-edit-group]");
+          if (editBtn) {
+            var row = editBtn.closest("tr");
+            if (!row) return;
+            openGroupModal({
+              id: row.getAttribute("data-group-id"),
+              name: row.getAttribute("data-name") || "",
+              color: row.getAttribute("data-color") || "#2563eb",
+              note: row.getAttribute("data-note") || "",
+              auto_issue: row.getAttribute("data-auto-issue") === "1",
+              canary_default: row.getAttribute("data-canary-default") === "1",
+              duration: row.getAttribute("data-duration")
+            });
+            return;
+          }
+          var resetBtn = e.target.closest("[data-reset-group-overrides]");
+          if (resetBtn) {
+            var resetGid = resetBtn.getAttribute("data-reset-group-overrides");
+            var resetRow = resetBtn.closest("tr");
+            var resetName = resetRow ? (resetRow.getAttribute("data-name") || "") : "";
+            if (!resetGid || !window.confirm("确认将分组「" + resetName + "」内所有单机覆盖成员恢复为跟随分组吗？")) return;
+            resetBtn.disabled = true;
+            sendAdminJson("/admin/groups/" + encodeURIComponent(resetGid) + "/reset-overrides", {}).then(function (res) {
+              showToast("已将 " + (res.reset_count || 0) + " 台客户端恢复为跟随分组", "ok");
+              return refreshAdmin(true);
+            }).catch(function (err) {
+              resetBtn.disabled = false;
+              showToast(err && err.message ? err.message : "重置覆盖失败", "error");
+            });
+            return;
+          }
+          var delBtn = e.target.closest("[data-delete-group]");
+          if (delBtn) {
+            var delGid = delBtn.getAttribute("data-delete-group");
+            var delName = delBtn.getAttribute("data-group-name") || "";
+            if (!delGid || !window.confirm("确认删除分组「" + delName + "」吗？组内全部成员将自动移回默认分组。")) return;
+            delBtn.disabled = true;
+            sendAdminJson("/admin/groups/" + encodeURIComponent(delGid), null, "DELETE").then(function (res) {
+              if (state.clientGroupFilter === delGid) state.clientGroupFilter = "all";
+              showToast("已删除分组「" + delName + "」（" + (res.reassigned || 0) + " 台设备已移回默认分组）", "ok");
+              return refreshAdmin(true);
+            }).catch(function (err) {
+              delBtn.disabled = false;
+              showToast(err && err.message ? err.message : "删除分组失败", "error");
+            });
+          }
+        });
+      }
+
+      if (clientGroupFilter) {
+        clientGroupFilter.addEventListener("change", function () {
+          state.clientGroupFilter = this.value || "all";
+          applyView();
+        });
+      }
+      if (clientsSelectAll) {
+        clientsSelectAll.addEventListener("change", function () {
+          var check = this.checked;
+          var rows = tbody.querySelectorAll("tr");
+          for (var i = 0; i < rows.length; i++) {
+            if (rows[i].hidden) continue;
+            var uid = rows[i].getAttribute("data-uid") || "";
+            var cb = rows[i].querySelector(".client-select-cb");
+            if (!uid || !cb) continue;
+            cb.checked = check;
+            if (check) state.selectedClientUids.add(uid);
+            else state.selectedClientUids.delete(uid);
+          }
+          syncBatchBarUI();
+        });
+      }
+      if (batchClearSelectionBtn) {
+        batchClearSelectionBtn.addEventListener("click", function () {
+          state.selectedClientUids.clear();
+          applyView();
+        });
+      }
+      if (batchGroupSelect) {
+        batchGroupSelect.addEventListener("change", syncBatchBarUI);
+      }
+      if (batchAssignGroupBtn) {
+        batchAssignGroupBtn.addEventListener("click", function () {
+          var uids = Array.from(state.selectedClientUids);
+          var targetGroupId = batchGroupSelect ? parseInt(batchGroupSelect.value, 10) : NaN;
+          if (uids.length === 0 || !Number.isFinite(targetGroupId)) return;
+          var clearOv = Boolean(batchClearOverride && batchClearOverride.checked);
+          batchAssignGroupBtn.disabled = true;
+          sendAdminJson("/admin/clients/group", {
+            uids: uids,
+            group_id: targetGroupId,
+            clear_override: clearOv
+          }).then(function (res) {
+            state.selectedClientUids.clear();
+            if (batchClearOverride) batchClearOverride.checked = false;
+            showToast("已将 " + (res.updated || uids.length) + " 台客户端移入所选分组", "ok");
+            return refreshAdmin(true);
+          }).catch(function (err) {
+            showToast(err && err.message ? err.message : "批量分组失败", "error");
+            syncBatchBarUI();
+          });
+        });
+      }
+      if (gotoGroupsBtn) {
+        gotoGroupsBtn.addEventListener("click", function () {
+          setActiveTab("groups");
+        });
+      }
+      tbody.addEventListener("change", function (e) {
+        var cb = e.target.closest(".client-select-cb");
+        if (cb) {
+          var uid = cb.value || "";
+          if (uid) {
+            if (cb.checked) state.selectedClientUids.add(uid);
+            else state.selectedClientUids.delete(uid);
+          }
+          syncBatchBarUI();
+          return;
+        }
+        var groupSel = e.target.closest(".client-group-select");
+        if (groupSel) {
+          var targetUid = groupSel.getAttribute("data-client-group-select") || "";
+          var prevGid = groupSel.getAttribute("data-current-group") || "";
+          var nextGid = parseInt(groupSel.value, 10);
+          if (!targetUid || !Number.isFinite(nextGid)) return;
+          groupSel.disabled = true;
+          sendAdminJson("/admin/clients/group", {
+            uids: [targetUid],
+            group_id: nextGid,
+            clear_override: false
+          }).then(function () {
+            showToast("已更新客户端所属分组：" + shortUid(targetUid), "ok");
+            return refreshAdmin(true);
+          }).catch(function (err) {
+            groupSel.value = prevGid;
+            groupSel.disabled = false;
+            showToast(err && err.message ? err.message : "切换分组失败", "error");
+          });
+        }
+      });
 
       tbody.addEventListener("click", function (e) {
         if (handleUidTableClick(e)) return;
@@ -3969,6 +5126,148 @@
         }
       });
 
+      function setGroupCheckboxes(containerEl, predicate) {
+        if (!containerEl) return;
+        var cbs = containerEl.querySelectorAll('input[type="checkbox"]');
+        for (var i = 0; i < cbs.length; i++) {
+          cbs[i].checked = Boolean(predicate(cbs[i]));
+        }
+      }
+
+      function bindMultiSelectTableEvents(tableBody, selectedSet, selectAllEl, removeBtnEl) {
+        if (tableBody) {
+          tableBody.addEventListener("change", function (e) {
+            var cb = e.target.closest('input[type="checkbox"]');
+            if (!cb) return;
+            var uid = cb.value || "";
+            if (!uid) return;
+            if (cb.checked) selectedSet.add(uid);
+            else selectedSet.delete(uid);
+            syncMultiSelectTableUI(tableBody, selectedSet, selectAllEl, removeBtnEl);
+          });
+        }
+        if (selectAllEl && tableBody) {
+          selectAllEl.addEventListener("change", function () {
+            var check = this.checked;
+            var rows = tableBody.querySelectorAll("tr");
+            for (var i = 0; i < rows.length; i++) {
+              if (rows[i].hidden) continue;
+              var uid = rows[i].getAttribute("data-uid") || "";
+              var cb = rows[i].querySelector('input[type="checkbox"]');
+              if (!uid || !cb) continue;
+              cb.checked = check;
+              if (check) selectedSet.add(uid);
+              else selectedSet.delete(uid);
+            }
+            syncMultiSelectTableUI(tableBody, selectedSet, selectAllEl, removeBtnEl);
+          });
+        }
+      }
+
+      function bindPickerTableEvents(getCfg) {
+        var cfg = getCfg();
+        if (cfg.searchEl) {
+          cfg.searchEl.addEventListener("input", function () {
+            applyPickerTableView(getCfg());
+          });
+        }
+        if (cfg.groupFilterEl) {
+          cfg.groupFilterEl.addEventListener("change", function () {
+            applyPickerTableView(getCfg());
+          });
+        }
+        if (cfg.selectAllEl) {
+          cfg.selectAllEl.addEventListener("change", function () {
+            var cur = getCfg();
+            var check = this.checked;
+            var rows = cur.tbodyEl ? cur.tbodyEl.querySelectorAll("tr") : [];
+            for (var i = 0; i < rows.length; i++) {
+              if (rows[i].hidden) continue;
+              var cb = rows[i].querySelector("input.picker-row-cb:not(:disabled)");
+              if (cb) cb.checked = check;
+            }
+            updatePickerSelectionUI(cur);
+          });
+        }
+        if (cfg.tbodyEl) {
+          cfg.tbodyEl.addEventListener("change", function () {
+            updatePickerSelectionUI(getCfg());
+          });
+          cfg.tbodyEl.addEventListener("click", function (e) {
+            if (handleUidTableClick(e)) return;
+            if (e.target.closest("input.picker-row-cb")) return;
+            var row = e.target.closest("tr");
+            if (!row || row.classList.contains("is-disabled")) return;
+            var cb = row.querySelector("input.picker-row-cb:not(:disabled)");
+            if (cb) {
+              cb.checked = !cb.checked;
+              updatePickerSelectionUI(getCfg());
+            }
+          });
+        }
+      }
+
+      if (defaultGroupsSelectAll) {
+        defaultGroupsSelectAll.addEventListener("click", function () {
+          setGroupCheckboxes(canaryGroupsBannerList, function () { return true; });
+        });
+      }
+      if (defaultGroupsClearAll) {
+        defaultGroupsClearAll.addEventListener("click", function () {
+          setGroupCheckboxes(canaryGroupsBannerList, function () { return false; });
+        });
+      }
+      if (defaultGroupsSaveBtn) {
+        defaultGroupsSaveBtn.addEventListener("click", function () {
+          if (!canaryGroupsBannerList) return;
+          var checked = canaryGroupsBannerList.querySelectorAll('input.default-canary-group-cb:checked');
+          var groupIds = [];
+          for (var i = 0; i < checked.length; i++) {
+            var gid = parseInt(checked[i].value, 10);
+            if (Number.isFinite(gid)) groupIds.push(gid);
+          }
+          var syncActive = Boolean(defaultGroupsSyncActive && defaultGroupsSyncActive.checked);
+          defaultGroupsSaveBtn.disabled = true;
+          sendAdminJson("/admin/canary/default/groups", {
+            group_ids: groupIds,
+            sync_active_canary: syncActive
+          }).then(function () {
+            showToast(
+              "已保存默认灰度分组（共 " + groupIds.length + " 个" + (syncActive ? "，已同步当前灰度版本" : "") + "）",
+              "ok"
+            );
+            return refreshAdmin(true);
+          }).catch(function (err) {
+            showToast(err && err.message ? err.message : "保存默认灰度分组失败", "error");
+          }).finally(function () {
+            defaultGroupsSaveBtn.disabled = false;
+          });
+        });
+      }
+
+      if (defaultCanaryGroupFilter) {
+        defaultCanaryGroupFilter.addEventListener("change", function () {
+          state.defaultCanaryGroupFilter = this.value || "all";
+          applyDefaultCanaryView();
+        });
+      }
+      bindMultiSelectTableEvents(defaultCanaryTbody, state.selectedDefaultCanaryUids, defaultCanarySelectAll, defaultCanaryRemoveSelectedBtn);
+      if (defaultCanaryRemoveSelectedBtn) {
+        defaultCanaryRemoveSelectedBtn.addEventListener("click", function () {
+          var uids = Array.from(state.selectedDefaultCanaryUids);
+          if (uids.length === 0) return;
+          defaultCanaryRemoveSelectedBtn.disabled = true;
+          sendAdminJson("/admin/canary/default/remove", { uids: uids }).then(function () {
+            state.selectedDefaultCanaryUids.clear();
+            showToast("已从默认灰度名单批量移出 " + uids.length + " 台设备", "ok");
+            return refreshAdmin(true);
+          }).catch(function (err) {
+            showToast(err && err.message ? err.message : "批量移出失败", "error");
+            syncMultiSelectTableUI(defaultCanaryTbody, state.selectedDefaultCanaryUids, defaultCanarySelectAll, defaultCanaryRemoveSelectedBtn);
+          });
+        });
+      }
+
       defaultCanaryTbody.addEventListener("click", function (e) {
         if (handleUidTableClick(e)) return;
         var removeBtn = e.target.closest("[data-remove-default-canary]");
@@ -3977,6 +5276,7 @@
           if (!uid) return;
           removeBtn.disabled = true;
           sendAdminJson("/admin/canary/default/remove", { uid: uid }).then(function () {
+            state.selectedDefaultCanaryUids.delete(uid);
             showToast("已从默认灰度名单移出 " + shortUid(uid), "ok");
             return refreshAdmin(true);
           }).catch(function (err) {
@@ -4009,12 +5309,9 @@
         });
       });
 
-      defaultPickerSearch.addEventListener("input", renderDefaultClientPicker);
-      defaultPickerList.addEventListener("change", function () {
-        updatePickerAddButton(defaultPickerList, defaultPickerAddBtn);
-      });
+      bindPickerTableEvents(defaultPickerCfg);
       defaultPickerAddBtn.addEventListener("click", function () {
-        var uids = getSelectedPickerUids(defaultPickerList);
+        var uids = getSelectedPickerUids(defaultPickerTbody);
         if (uids.length === 0) return;
         defaultPickerAddBtn.disabled = true;
         sendAdminJson("/admin/canary/default/add", { uids: uids }).then(function () {
@@ -4022,7 +5319,7 @@
           return refreshAdmin(true);
         }).catch(function (err) {
           showToast(err && err.message ? err.message : "批量添加失败", "error");
-          updatePickerAddButton(defaultPickerList, defaultPickerAddBtn);
+          updatePickerSelectionUI(defaultPickerCfg());
         });
       });
 
@@ -4034,10 +5331,11 @@
         var uid = row ? row.getAttribute("data-uid") : "";
         var name = row ? row.getAttribute("data-computer") : "";
         var submitter = e.submitter || form.querySelector("button");
-        var enabling = submitter && submitter.value === "1";
+        var modeVal = submitter ? submitter.value : "";
         var label = name ? name + " (" + shortUid(uid) + ")" : shortUid(uid);
         submitFormAsync(form, submitter, function () {
-          return (enabling ? "已启用自动签发：" : "已停发客户端：") + label;
+          if (modeVal === "inherit") return "已恢复跟随分组策略：" + label;
+          return (modeVal === "1" ? "已启用自动签发（单机覆盖）：" : "已停发客户端（单机覆盖）：") + label;
         });
       });
 
@@ -4182,14 +5480,16 @@
         if (e.target === canaryModal) closeCanaryModal();
       });
 
-      modalPickerSearch.addEventListener("input", renderModalClientPicker);
-      modalPickerList.addEventListener("change", function () {
-        updatePickerAddButton(modalPickerList, modalPickerAddBtn);
-      });
+      bindPickerTableEvents(modalPickerCfg);
+      if (modalPickerGroupFilter) {
+        modalPickerGroupFilter.addEventListener("change", function () {
+          state.modalPickerGroupFilter = this.value || "all";
+        });
+      }
 
       modalPickerAddBtn.addEventListener("click", function () {
         if (!modalState.version) return;
-        var uids = getSelectedPickerUids(modalPickerList);
+        var uids = getSelectedPickerUids(modalPickerTbody);
         if (uids.length === 0) return;
         modalPickerAddBtn.disabled = true;
         sendAdminJson("/admin/updates/" + encodeURIComponent(modalState.version) + "/canary/add", { uids: uids }).then(function (payload) {
@@ -4198,9 +5498,52 @@
           return refreshAdmin(true);
         }).catch(function (err) {
           showToast(err && err.message ? err.message : "添加失败", "error");
-          updatePickerAddButton(modalPickerList, modalPickerAddBtn);
+          updatePickerSelectionUI(modalPickerCfg());
         });
       });
+
+      if (modalMembersGroupFilter) {
+        modalMembersGroupFilter.addEventListener("change", function () {
+          state.modalMembersGroupFilter = this.value || "all";
+          applyModalMembersView();
+        });
+      }
+      bindMultiSelectTableEvents(modalMembersTbody, state.selectedModalMemberUids, modalMembersSelectAll, modalMembersRemoveSelectedBtn);
+      if (modalMembersRemoveSelectedBtn) {
+        modalMembersRemoveSelectedBtn.addEventListener("click", function () {
+          if (!modalState.version) return;
+          var uids = Array.from(state.selectedModalMemberUids);
+          if (uids.length === 0) return;
+          modalMembersRemoveSelectedBtn.disabled = true;
+          sendAdminJson("/admin/updates/" + encodeURIComponent(modalState.version) + "/canary/remove", { uids: uids }).then(function (payload) {
+            state.selectedModalMemberUids.clear();
+            renderCanaryModalPayload(payload);
+            showToast("已批量移出 " + uids.length + " 台灰度设备", "ok");
+            return refreshAdmin(true);
+          }).catch(function (err) {
+            showToast(err && err.message ? err.message : "批量移出失败", "error");
+            syncMultiSelectTableUI(modalMembersTbody, state.selectedModalMemberUids, modalMembersSelectAll, modalMembersRemoveSelectedBtn);
+          });
+        });
+      }
+
+      if (modalGroupsSelectAll) {
+        modalGroupsSelectAll.addEventListener("click", function () {
+          setGroupCheckboxes(modalCanaryGroupsList, function () { return true; });
+        });
+      }
+      if (modalGroupsClearAll) {
+        modalGroupsClearAll.addEventListener("click", function () {
+          setGroupCheckboxes(modalCanaryGroupsList, function () { return false; });
+        });
+      }
+      if (modalGroupsUseDefaultBtn) {
+        modalGroupsUseDefaultBtn.addEventListener("click", function () {
+          setGroupCheckboxes(modalCanaryGroupsList, function (cb) {
+            return cb.getAttribute("data-canary-default") === "1";
+          });
+        });
+      }
 
       modalAddUidForm.addEventListener("submit", function (e) {
         e.preventDefault();
@@ -4233,6 +5576,7 @@
         if (!uid) return;
         rmBtn.disabled = true;
         sendAdminJson("/admin/updates/" + encodeURIComponent(modalState.version) + "/canary/remove", { uid: uid }).then(function (payload) {
+          state.selectedModalMemberUids.delete(uid);
           renderCanaryModalPayload(payload);
           showToast("已移出 " + shortUid(uid), "ok");
           return refreshAdmin(true);
@@ -4264,14 +5608,38 @@
         });
       });
 
+      if (modalSaveGroupsBtn) {
+        modalSaveGroupsBtn.addEventListener("click", function () {
+          if (!modalState.version || !modalCanaryGroupsList) return;
+          var checked = modalCanaryGroupsList.querySelectorAll('input[type="checkbox"]:checked');
+          var groupIds = [];
+          for (var i = 0; i < checked.length; i++) {
+            var gid = parseInt(checked[i].value, 10);
+            if (Number.isFinite(gid)) groupIds.push(gid);
+          }
+          modalSaveGroupsBtn.disabled = true;
+          sendAdminJson("/admin/updates/" + encodeURIComponent(modalState.version) + "/canary/groups", {
+            group_ids: groupIds
+          }).then(function (payload) {
+            renderCanaryModalPayload(payload);
+            showToast("已保存版本 " + payload.version + " 关联分组（共 " + groupIds.length + " 个）", "ok");
+            return refreshAdmin(true);
+          }).catch(function (err) {
+            showToast(err && err.message ? err.message : "保存关联分组失败", "error");
+          }).finally(function () {
+            modalSaveGroupsBtn.disabled = false;
+          });
+        });
+      }
+
       modalSaveDefaultBtn.addEventListener("click", function () {
         if (!modalState.version) return;
-        if (!window.confirm("确认用版本 " + modalState.version + " 当前灰度名单（" + modalState.members.length + " 台）覆盖默认灰度名单吗？")) {
+        if (!window.confirm("确认用版本 " + modalState.version + " 当前灰度名单（含关联分组与 " + modalState.members.length + " 台独立设备）覆盖默认灰度设置吗？")) {
           return;
         }
         modalSaveDefaultBtn.disabled = true;
         sendAdminJson("/admin/updates/" + encodeURIComponent(modalState.version) + "/canary/save-default", { mode: "replace" }).then(function (res) {
-          showToast("已更新默认灰度名单（共 " + res.default_count + " 台）", "ok");
+          showToast("已更新默认灰度配置（独立 UID " + res.default_count + " 台，默认分组 " + (res.default_group_count || 0) + " 个）", "ok");
           return refreshAdmin(true);
         }).catch(function (err) {
           showToast(err && err.message ? err.message : "同步默认名单失败", "error");
@@ -4309,6 +5677,12 @@
             clear: function () { state.modalSearch = ""; applyModalMembersView(); }
           };
         }
+        if (state.activeTab === "groups") {
+          return {
+            input: groupSearchInput,
+            clear: function () { state.groupSearch = ""; applyGroupsView(); }
+          };
+        }
         if (state.activeTab === "versions") {
           return {
             input: versionSearchInput,
@@ -4330,6 +5704,10 @@
       document.addEventListener("keydown", function (e) {
         var target = getActiveSearchTarget();
         if (e.key === "Escape") {
+          if (groupModal && !groupModal.hidden) {
+            closeGroupModal();
+            return;
+          }
           if (target.input && document.activeElement === target.input && target.input.value) {
             target.input.value = "";
             target.clear();
@@ -4341,6 +5719,7 @@
           }
         }
         if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          if (groupModal && !groupModal.hidden) return;
           var tag = document.activeElement ? document.activeElement.tagName : "";
           if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT" && target.input) {
             e.preventDefault();
@@ -4359,6 +5738,7 @@
       syncUploadInheritOptions();
       renderDefaultClientPicker();
       applyView();
+      applyGroupsView();
       applyVersionsView();
       applyDefaultCanaryView();
       initResizableTables();

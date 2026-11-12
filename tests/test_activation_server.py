@@ -814,3 +814,292 @@ class ActivationServerTests(unittest.TestCase):
         self.assertNotIn("0.11.0", self.registry.version_canary_counts())
         from activation_server.updates import version_stage
         self.assertEqual(version_stage(self.folder / "updates" / "0.11.0"), STAGE_RELEASED)
+
+    def test_groups_default_creation_migration_and_inheritance_overrides(self):
+        """Verify default group auto-creation, legacy override migration, and group/client precedence."""
+        groups = self.registry.list_groups()
+        self.assertEqual(len(groups), 1)
+        default_group = groups[0]
+        self.assertEqual(default_group["is_default"], 1)
+        self.assertEqual(default_group["auto_issue"], 1)
+        self.assertEqual(default_group["canary_default"], 0)
+        self.assertIsNone(default_group["duration_minutes"])
+
+        # Legacy DB without groups / auto_issue_override should migrate auto_issue=0 into single-client override=0.
+        legacy_db = self.folder / "legacy_groups.sqlite3"
+        uid_enabled = "1" * 64
+        uid_disabled = "2" * 64
+        with closing(sqlite3.connect(legacy_db)) as db, db:
+            db.execute(
+                "CREATE TABLE clients (uid TEXT PRIMARY KEY, first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL, "
+                "auto_issue INTEGER NOT NULL DEFAULT 1, expires_at INTEGER)"
+            )
+            db.execute("INSERT INTO clients VALUES (?, ?, ?, 1, ?)", (uid_enabled, self.now - 100, self.now - 50, self.now + 60))
+            db.execute("INSERT INTO clients VALUES (?, ?, ?, 0, NULL)", (uid_disabled, self.now - 100, self.now - 50))
+
+        migrated = Registry(legacy_db, self.key, lambda: self.now)
+        _, clients = migrated.view()
+        by_uid = {c["uid"]: c for c in clients}
+        self.assertEqual(by_uid[uid_enabled]["group_is_default"], 1)
+        self.assertIsNone(by_uid[uid_enabled]["auto_issue_override"])
+        self.assertEqual(by_uid[uid_enabled]["effective_auto_issue"], 1)
+        self.assertEqual(by_uid[uid_disabled]["group_is_default"], 1)
+        self.assertEqual(by_uid[uid_disabled]["auto_issue_override"], 0)
+        self.assertEqual(by_uid[uid_disabled]["effective_auto_issue"], 0)
+        self.assertIsNone(migrated.issue(uid_disabled, "0.9.0"))
+
+        # New client auto-assigns to default group and honors custom group policy + duration override.
+        uid_a = "3" * 64
+        uid_b = "4" * 64
+        code_a = self.registry.issue(uid_a, "0.9.0", computer_name="Alpha")
+        code_b = self.registry.issue(uid_b, "0.9.0", computer_name="Beta")
+        self.assertIsNotNone(code_a)
+        self.assertIsNotNone(code_b)
+
+        vip = self.registry.create_group(
+            "VIP-QA",
+            color="#059669",
+            note="受控测试组",
+            auto_issue=False,
+            canary_default=True,
+            duration_minutes=120,
+        )
+        self.registry.set_clients_group([uid_a, uid_b], vip["id"], clear_override=False)
+
+        # Un-overridden clients inherit group auto_issue=False after expiry.
+        self.now += 1500 * 60
+        self.assertIsNone(self.registry.issue(uid_a, "0.9.0"))
+
+        # Single-client override="1" allows activation AND uses group custom duration_minutes=120.
+        self.registry.set_auto_issue_mode(uid_a, "1")
+        custom_code = self.registry.issue(uid_a, "0.9.0")
+        self.assertEqual(verify_code(custom_code, uid_a, self.key.public_key()), self.now + 120 * 60)
+
+        # Explicit reset of one client or whole group returns to inheriting group auto_issue=False.
+        self.registry.set_auto_issue_mode(uid_b, "1")
+        self.assertEqual(self.registry.get_group(vip["id"])["override_count"], 2)
+        self.registry.set_auto_issue_mode(uid_b, "inherit")
+        self.assertEqual(self.registry.get_group(vip["id"])["override_count"], 1)
+        self.assertEqual(self.registry.reset_group_overrides(vip["id"]), 1)
+        self.assertEqual(self.registry.get_group(vip["id"])["override_count"], 0)
+
+        self.now += 200 * 60
+        self.assertIsNone(self.registry.issue(uid_a, "0.9.0"))
+
+        # Switching group back to auto_issue=True and duration_minutes=None restores global duration fallback.
+        self.registry.update_group(vip["id"], auto_issue=True, duration_minutes=None)
+        global_dur, _ = self.registry.view()
+        reissued = self.registry.issue(uid_a, "0.9.0")
+        self.assertEqual(verify_code(reissued, uid_a, self.key.public_key()), self.now + global_dur * 60)
+
+    def test_group_crud_validation_delete_reassignment_and_csrf(self):
+        """Verify HTTP admin group endpoints, CSRF protection, validation errors, and member reassignment on delete."""
+        self.start_server()
+        auth = b"test-admin:test-password"
+        uid1 = "5" * 64
+        uid2 = "6" * 64
+        self.registry.issue(uid1, "0.9.0", computer_name="Dev-1")
+        self.registry.issue(uid2, "0.9.0", computer_name="Dev-2")
+
+        code, html = self.request("GET", "/admin", auth=auth)
+        self.assertEqual(code, 200)
+        self.assertIn("分组管理", html)
+        self.assertIn("默认分组", html)
+        csrf = re.search(r'name="csrf" value="([^"]+)"', html)[1]
+
+        def req_json(method, path, payload=None, *, include_csrf=True):
+            hdrs = {"X-CSRF-Token": csrf} if include_csrf else None
+            body = json.dumps(payload) if payload is not None else None
+            return self.request(method, path, body, auth=auth, content_type="application/json" if body is not None else None, headers=hdrs)
+
+        # Missing CSRF must return 403 across group and client-group endpoints.
+        self.assertEqual(req_json("POST", "/admin/groups", {"name": "NoCSRF"}, include_csrf=False)[0], 403)
+        self.assertEqual(req_json("POST", "/admin/clients/group", {"uids": [uid1], "group_id": 1}, include_csrf=False)[0], 403)
+
+        # Validation failures return 422.
+        self.assertEqual(req_json("POST", "/admin/groups", {"name": "   "})[0], 422)
+        self.assertEqual(req_json("POST", "/admin/groups", {"name": "BadColor", "color": "#zzz"})[0], 422)
+        self.assertEqual(req_json("POST", "/admin/groups", {"name": "BadDur", "duration_minutes": 0})[0], 422)
+
+        # Create custom group & reject duplicate names.
+        c_code, c_body = req_json(
+            "POST",
+            "/admin/groups",
+            {"name": "QA Team", "color": "#dc2626", "note": "QA", "auto_issue": True, "canary_default": True, "duration_minutes": 30},
+        )
+        self.assertEqual(c_code, 200)
+        qa = json.loads(c_body)["group"]
+        self.assertEqual(req_json("POST", "/admin/groups", {"name": "QA Team"})[0], 422)
+        self.assertEqual(req_json("POST", "/admin/groups/1/reset-overrides", {}, include_csrf=False)[0], 403)
+        self.assertEqual(req_json("DELETE", f"/admin/groups/{qa['id']}", include_csrf=False)[0], 403)
+        # Default group cannot be deleted.
+        default_gid = [g["id"] for g in self.registry.list_groups() if g["is_default"]][0]
+        self.assertEqual(req_json("DELETE", f"/admin/groups/{default_gid}")[0], 422)
+
+        # Override uid1 to disabled, then assign [uid1, uid2] to qa with clear_override=True.
+        self.registry.set_auto_issue_mode(uid1, "0")
+        m_code, m_body = req_json(
+            "POST",
+            "/admin/clients/group",
+            {"uids": [uid1, uid2], "group_id": qa["id"], "clear_override": True},
+        )
+        self.assertEqual(m_code, 200)
+        self.assertEqual(json.loads(m_body)["updated"], 2)
+
+        _, clients = self.registry.view()
+        client_map = {c["uid"]: c for c in clients}
+        self.assertEqual(client_map[uid1]["group_id"], qa["id"])
+        self.assertIsNone(client_map[uid1]["auto_issue_override"])
+
+        # Form post supporting auto_issue="inherit" after setting override="0".
+        self.registry.set_auto_issue_mode(uid1, "0")
+        inh_code, _ = self.request(
+            "POST",
+            f"/admin/clients/{uid1}",
+            urlencode({"csrf": csrf, "auto_issue": "inherit"}),
+            auth=auth,
+            content_type="application/x-www-form-urlencoded",
+        )
+        self.assertEqual(inh_code, 303)
+        _, clients_after = self.registry.view()
+        self.assertIsNone({c["uid"]: c for c in clients_after}[uid1]["auto_issue_override"])
+
+        # Deleting custom group reassigns both clients back to default group.
+        d_code, d_body = req_json("DELETE", f"/admin/groups/{qa['id']}")
+        self.assertEqual(d_code, 200)
+        self.assertEqual(json.loads(d_body)["reassigned"], 2)
+        _, clients_final = self.registry.view()
+        self.assertTrue(all(c["group_id"] == default_gid for c in clients_final))
+
+    def test_canary_groups_dynamic_membership_inheritance_and_sync(self):
+        """Verify dynamic group-based canary delivery, inheritance, and group canary sync."""
+        self.start_server()
+        auth = b"test-admin:test-password"
+        uid_qa = "7" * 64
+        uid_mover = "8" * 64
+        self.registry.issue(uid_qa, "0.8.0", computer_name="QA-1")
+        self.registry.issue(uid_mover, "0.8.0", computer_name="Mover-1")
+
+        qa_group = self.registry.create_group("Canary-QA", canary_default=True)
+        dev_group = self.registry.create_group("Canary-Dev", canary_default=False)
+        default_gid = [g["id"] for g in self.registry.list_groups() if g["is_default"]][0]
+        self.registry.set_clients_group([uid_qa], qa_group["id"])
+
+        r_09 = self.write_release(self.folder / "r09", "0.9.0")
+        publish_update(self.folder, r_09, self.key, stage=STAGE_CANARY)
+        self.registry.init_version_canary("0.9.0", "default", updates_dir=self.folder / "updates")
+
+        def latest_ver(uid):
+            code, body = self.request("GET", f"{UPDATES_PATH}/latest", headers={"X-PerfLens-UID": uid})
+            if code == 204:
+                return 204, None
+            payload = json.loads(base64.b64decode(json.loads(body)["payload"]))
+            return code, payload["version"]
+
+        self.assertEqual(latest_ver(uid_qa), (200, "0.9.0"))
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer", headers={"X-PerfLens-UID": uid_qa})[0], 200)
+        self.assertEqual(latest_ver(uid_mover), (204, None))
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer", headers={"X-PerfLens-UID": uid_mover})[0], 404)
+
+        _, html = self.request("GET", "/admin", auth=auth)
+        csrf = re.search(r'name="csrf" value="([^"]+)"', html)[1]
+
+        def post_json(path, payload):
+            return self.request(
+                "POST",
+                path,
+                json.dumps(payload),
+                auth=auth,
+                content_type="application/json",
+                headers={"X-CSRF-Token": csrf},
+            )
+
+        # Moving uid_mover into qa_group via HTTP grants immediate canary access; moving uid_qa out revokes it.
+        self.assertEqual(post_json("/admin/clients/group", {"uids": [uid_mover], "group_id": qa_group["id"]})[0], 200)
+        self.assertEqual(latest_ver(uid_mover), (200, "0.9.0"))
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer", headers={"X-PerfLens-UID": uid_mover})[0], 200)
+
+        self.assertEqual(post_json("/admin/clients/group", {"uids": [uid_qa], "group_id": default_gid})[0], 200)
+        self.assertEqual(latest_ver(uid_qa), (204, None))
+        self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer", headers={"X-PerfLens-UID": uid_qa})[0], 404)
+
+        # Publish 0.10.0 and explicitly bind dev_group via HTTP API.
+        r_10 = self.write_release(self.folder / "r10", "0.10.0")
+        publish_update(self.folder, r_10, self.key, stage=STAGE_CANARY)
+        self.registry.init_version_canary("0.10.0", "none", updates_dir=self.folder / "updates")
+        self.registry.set_clients_group([uid_qa], dev_group["id"])
+
+        g_code, g_body = post_json("/admin/updates/0.10.0/canary/groups", {"group_ids": [dev_group["id"]]})
+        self.assertEqual(g_code, 200)
+        g_payload = json.loads(g_body)
+        self.assertEqual(g_payload["summary"]["group_count"], 1)
+        self.assertEqual(g_payload["summary"]["effective_count"], 1)
+        self.assertEqual(latest_ver(uid_qa), (200, "0.10.0"))
+
+        # Inheriting from 0.10.0 copies bound groups too.
+        r_11 = self.write_release(self.folder / "r11", "0.11.0")
+        publish_update(self.folder, r_11, self.key, stage=STAGE_CANARY)
+        self.registry.init_version_canary("0.11.0", "0.10.0", updates_dir=self.folder / "updates")
+        self.assertEqual(latest_ver(uid_qa), (200, "0.11.0"))
+
+        # Updating a group with sync_active_canary=True binds it to all active canary versions; save-default syncs canary_default flags.
+        u_code, _ = post_json(
+            f"/admin/groups/{default_gid}",
+            {"canary_default": True, "sync_active_canary": True},
+        )
+        self.assertEqual(u_code, 200)
+        default_bound = [g["id"] for g in self.registry.list_version_canary_groups("0.10.0") if g["selected"]]
+        self.assertIn(default_gid, default_bound)
+
+        s_code, s_body = post_json("/admin/updates/0.10.0/canary/save-default", {"mode": "replace"})
+        self.assertEqual(s_code, 200)
+        self.assertEqual(json.loads(s_body)["default_group_count"], 2)
+        group_flags = {g["id"]: g["canary_default"] for g in self.registry.list_groups()}
+        self.assertEqual(group_flags[qa_group["id"]], 0)
+        self.assertEqual(group_flags[dev_group["id"]], 1)
+        self.assertEqual(group_flags[default_gid], 1)
+
+        # Batch update default canary groups via /admin/canary/default/groups with optional active canary sync.
+        self.assertEqual(
+            self.request(
+                "POST",
+                "/admin/canary/default/groups",
+                json.dumps({"group_ids": [qa_group["id"]]}),
+                auth=auth,
+                content_type="application/json",
+            )[0],
+            403,
+        )
+        self.assertEqual(post_json("/admin/canary/default/groups", {"group_ids": "bad"})[0], 422)
+        self.assertEqual(post_json("/admin/canary/default/groups", {"group_ids": [999999]})[0], 404)
+
+        dg_code, dg_body = post_json(
+            "/admin/canary/default/groups",
+            {"group_ids": [qa_group["id"]], "sync_active_canary": True},
+        )
+        self.assertEqual(dg_code, 200)
+        self.assertEqual(json.loads(dg_body)["default_group_count"], 1)
+        group_flags_after = {g["id"]: g["canary_default"] for g in self.registry.list_groups()}
+        self.assertEqual(group_flags_after[qa_group["id"]], 1)
+        self.assertEqual(group_flags_after[dev_group["id"]], 0)
+        self.assertEqual(group_flags_after[default_gid], 0)
+        v10_selected = [g["id"] for g in self.registry.list_version_canary_groups("0.10.0") if g["selected"]]
+        self.assertEqual(v10_selected, [qa_group["id"]])
+
+        # Verify /admin renders group-aware controls and sortable table headers for picker tables.
+        self.registry.add_default_canary_members([uid_qa], note="grp-member")
+        _, updated_html = self.request("GET", "/admin", auth=auth)
+        for marker in (
+            'id="default-groups-save-btn"',
+            'class="default-canary-group-cb"',
+            'data-table-id="default-picker"',
+            'data-table-id="modal-picker"',
+            'data-sort-table="default-picker" data-sort="computer"',
+            'data-sort-table="modal-picker" data-sort="canaryStatus"',
+            'id="default-picker-group-filter"',
+            'id="default-canary-group-filter"',
+            'id="modal-picker-group-filter"',
+            'id="modal-members-group-filter"',
+            f'data-group-id="{dev_group["id"]}"',
+        ):
+            self.assertIn(marker, updated_html)
