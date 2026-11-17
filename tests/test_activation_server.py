@@ -50,7 +50,7 @@ class ActivationServerTests(unittest.TestCase):
         listener.bind(("127.0.0.1", 0))
         self.port = listener.getsockname()[1]
         app = create_app(self.registry, "test-admin", "test-password", distribution_dir=distribution_dir)
-        server = uvicorn.Server(uvicorn.Config(app, log_level="critical", lifespan="on"))
+        server = uvicorn.Server(uvicorn.Config(app, log_level="critical", lifespan="on", proxy_headers=False))
         worker = threading.Thread(target=server.run, kwargs={"sockets": [listener]}, daemon=True)
         worker.start()
 
@@ -197,7 +197,7 @@ class ActivationServerTests(unittest.TestCase):
         self.assertEqual(code, 200)
         self.assertEqual(verify_code(json.loads(body)["code"], self.uid, self.key.public_key()), expiry)
         html = self.request("GET", "/admin", auth=auth)[1]
-        self.assertIn("<td>2001:db8::1</td>", html)
+        self.assertIn("<td>127.0.0.1</td>", html)
         self.assertIn("测试机&lt;01&gt;", html)
         self.assertEqual(activate(), (code, body))
         self.assertEqual(activate(local_ip="192.0.2.41"), (code, body))
@@ -208,10 +208,65 @@ class ActivationServerTests(unittest.TestCase):
         reopened = Registry(old_db, self.key, lambda: self.now)
         row = reopened.view()[1][0]
         self.assertEqual((row["first_seen"], row["expires_at"], row["client_version"]), (self.now - 60, expiry, "0.4.1"))
-        self.assertEqual((row["local_ip"], row["computer_name"]), ("192.0.2.41", "测试机<01>"))
+        self.assertEqual((row["local_ip"], row["computer_name"]), ("127.0.0.1", "测试机<01>"))
         html = self.request("GET", "/admin", auth=auth)[1]
         self.assertIn("<td>0.4.1</td>", html)
-        self.assertIn("<td>192.0.2.41</td>", html)
+        self.assertIn("<td>127.0.0.1</td>", html)
+
+    def activate_from(self, source_ip, *, reported_ip=None, headers=()):
+        payload = {"uid": self.uid, "computer_name": "Public client", "client_version": "0.4.9"}
+        if reported_ip is not None:
+            payload["local_ip"] = reported_ip
+        body = json.dumps(payload).encode("utf-8")
+        app = create_app(self.registry, "test-admin", "test-password")
+
+        async def dispatch():
+            messages = []
+
+            async def receive():
+                return {"type": "http.request", "body": body}
+
+            async def send(message):
+                messages.append(message)
+
+            await app({
+                "type": "http", "http_version": "1.1", "method": "POST", "scheme": "https",
+                "path": ACTIVATION_PATH, "query_string": b"",
+                "headers": [(b"content-type", b"application/json"), *headers],
+                "client": (source_ip, 50000) if source_ip is not None else None,
+            }, receive, send)
+            return messages[0]["status"], json.loads(b"".join(item.get("body", b"") for item in messages))
+
+        return asyncio.run(dispatch())
+
+    def test_registration_records_connection_ip_instead_of_reported_lan_ip(self):
+        for source_ip,normalized in [("203.0.113.41", "203.0.113.41"),
+                                     ("2001:0db8:abcd::1", "2001:db8:abcd::1"),
+                                     ("192.168.2.35", "192.168.2.35")]:
+            with self.subTest(source_ip=source_ip):
+                status,body = self.activate_from(source_ip, reported_ip="192.168.1.100")
+                self.assertEqual(status, 200)
+                self.assertEqual(verify_code(body["code"], self.uid, self.key.public_key()), self.now+86400)
+                row = self.registry.view()[1][0]
+                self.assertEqual(row["local_ip"], normalized)
+                self.assertEqual((row["computer_name"], row["client_version"]), ("Public client", "0.4.9"))
+        # A renewed request updates the address even while the previously signed lease remains valid.
+        self.assertEqual(self.activate_from("198.51.100.22")[0], 200)
+        self.assertEqual(self.registry.view()[1][0]["local_ip"], "198.51.100.22")
+
+    def test_registration_ignores_untrusted_forwarded_headers(self):
+        self.start_server()
+        status,_ = self.request("POST", ACTIVATION_PATH, json.dumps({"uid": self.uid, "local_ip": "192.168.1.10"}),
+                                content_type="application/json", headers={"X-Forwarded-For": "203.0.113.99"})
+        self.assertEqual(status, 200)
+        self.assertEqual(self.registry.view()[1][0]["local_ip"], "127.0.0.1")
+        html = self.request("GET", "/admin", auth=b"test-admin:test-password")[1]
+        self.assertIn("来源 IP", html)
+        self.assertNotIn("本机 IP", html)
+
+    def test_registration_without_connection_address_retains_legacy_ip_fallback(self):
+        self.assertEqual(self.activate_from(None, reported_ip="2001:0db8::1")[0], 200)
+        self.assertEqual(self.registry.view()[1][0]["local_ip"], "2001:db8::1")
 
     def test_published_manifest_is_signed_and_downloads_stay_versioned(self):
         self.start_server()

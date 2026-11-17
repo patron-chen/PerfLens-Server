@@ -90,13 +90,15 @@ bash deploy.sh --install-service
 
 - 默认在服务主机打开 `http://127.0.0.1:8787/admin` 登录。其他内网机器通过 HTTPS 登录。在 BAT 中填写 `ACTIVATION_TLS_CERTFILE` 和 `ACTIVATION_TLS_KEYFILE`，或在 Bash 中填写 `tls_certfile` 和 `tls_keyfile` 启用 HTTPS。浏览器和 PerfLens 客户端需信任签发 TLS 证书的 CA，访问地址需匹配证书。
 - 部署脚本默认将 `PERFLENS_ADMIN_ALLOW_HTTP` 设为 `0`。在可信内网需要使用 HTTP 管理时，将脚本中的值改为 `1`，保持 TLS 配置为空，然后重启服务。HTTP 下 Basic Auth 凭据未经加密。
-- 管理页显示登记 UID、计算机名、本机 IP、客户端版本、首次登记、最近请求、最近签发到期和签发开关。默认每次授权 1440 分钟，修改从下一次签发起生效。停发后，客户端已领取的授权有效至到期。
-- 将服务器的 `private/activation/activation-public.pem` 复制到客户端仓库的 `private/activation-public.pem`。在客户端 `buildscript/package.bat` 中填写 `PERFLENS_PACKAGE_ACTIVATION_IP` 和 `PERFLENS_PACKAGE_ACTIVATION_PORT`，使用客户端可达的服务器 IP 和端口。启用 HTTPS 时将 `PERFLENS_PACKAGE_ACTIVATION_SCHEME` 改为 `https`。运行 `buildscript\package.bat --check --no-pause` 校验，再运行 `buildscript\package.bat` 打包。
+- 管理页显示登记 UID、计算机名、来源 IP、客户端版本、首次登记、最近请求、最近签发到期和签发开关。来源 IP 优先采用服务器看到的客户端连接地址：经公网访问时为客户端出口公网 IP，经内网访问时为内网 IP。默认每次授权 1440 分钟，修改从下一次签发起生效。停发后，客户端已领取的授权有效至到期。
+- 将服务器的 `private/activation/activation-public.pem` 复制到客户端仓库的 `private/activation-public.pem`。在客户端 `buildscript/package.bat` 中填写 `PERFLENS_PACKAGE_ACTIVATION_IP`（或 `PERFLENS_PACKAGE_ACTIVATION_HOST`）和可选的 `PERFLENS_PACKAGE_ACTIVATION_PORT`，使用客户端可达的服务器 IP 或域名。启用 HTTPS 时将 `PERFLENS_PACKAGE_ACTIVATION_SCHEME` 改为 `https`。运行 `buildscript\package.bat --check --no-pause` 校验，再运行 `buildscript\package.bat` 打包。
 - 将数据目录限制给运行服务和发布更新的账号。停机备份 `activation.sqlite3`、`activation-private.pem`、`activation-public.pem` 和已发布的 `updates` 目录。恢复时使用同一套密钥，以便已打包客户端继续验签。首次初始化后可用相同数据目录重复运行 `init` 校验或补导公钥。
 
 客户端调用 `POST /api/v1/activate`，发送 `{"uid":"<64位小写十六进制UID>"}`。成功返回 `200` 和 `{"code":"..."}`，停发返回 `403`，UID 格式错误返回 `422`。客户端按签名中的 UTC 到期时间续期。建议用系统时间同步服务保持客户端和服务器的时钟一致。
 
-激活请求可附带 `computer_name`、`local_ip`（IPv4 或 IPv6）和 `client_version`。服务在成功签发时按 UID 保存最近一次提供的值。桌面客户端启动时上报一次，即使本机已有有效授权缓存。服务启动时自动升级 SQLite，历史记录的未知字段显示「—」，旧客户端可继续按 UID 激活。
+激活请求可附带 `computer_name`、`local_ip`（IPv4 或 IPv6）和 `client_version`。服务在成功签发时按 UID 保存元数据；数据库保留兼容字段名 `local_ip`，但优先保存连接来源 IP，仅在无法读取有效连接地址时回退到客户端上报的网卡地址。既有记录在下次成功请求时更新，无需重新打包客户端。桌面客户端启动时上报一次，即使本机已有有效授权缓存。服务启动时自动升级 SQLite，历史记录的未知字段显示「—」，旧客户端可继续按 UID 激活。
+
+默认启动关闭代理头解析，不直接信任 `X-Forwarded-For`。如果部署经过 Nginx、Cloudflare 等反向代理，连接来源可能是代理地址，需要按实际拓扑配置可信代理后才能使用其转发的客户端地址。
 
 ## 发布与管理在线更新
 

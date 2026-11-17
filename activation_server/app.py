@@ -1395,8 +1395,15 @@ def create_app(registry, username, password, *, distribution_dir=None):
         return version_dir / name, name
 
     @app.post(ACTIVATION_PATH)
-    def activate(request: ActivationRequest):
-        code = registry.issue(request.uid, request.client_version, local_ip=request.local_ip, computer_name=request.computer_name)
+    def activate(payload: ActivationRequest, request: Request):
+        source_ip = payload.local_ip
+        if request.client is not None:
+            try:
+                # The connection sees the NAT/public egress address; the payload only knows the local interface.
+                source_ip = str(ip_address(request.client.host))
+            except ValueError:
+                pass
+        code = registry.issue(payload.uid, payload.client_version, local_ip=source_ip, computer_name=payload.computer_name)
         if code is None:
             raise HTTPException(403, "issuance_disabled")
         return JSONResponse({"code": code}, headers={"Cache-Control": "no-store"})
