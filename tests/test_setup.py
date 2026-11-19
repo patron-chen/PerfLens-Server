@@ -3,11 +3,15 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
+import sys
 import tempfile
 import unittest
 
+from activation_server.__main__ import load_private_key
+from activation_server.protocol import load_public_key
 from activation_server.setup import (
     apply_mirror,
+    initialize_data,
     normalize_arch,
     verify_sha256,
     is_python_313,
@@ -63,6 +67,25 @@ class SetupTests(unittest.TestCase):
         with self.assertRaises(SystemExit) as exit_check:
             setup_main(["--help"])
         self.assertEqual(exit_check.exception.code, 0)
+
+    def test_setup_initializes_and_reuses_only_the_activation_key_pair(self):
+        root = Path(tempfile.mkdtemp(prefix="perflens-setup-test-"))
+        data_dir = root / "activation"
+        python = Path(sys.executable)
+        initialize_data(python, data_dir)
+
+        private_path = data_dir / "activation-private.pem"
+        public_path = data_dir / "activation-public.pem"
+        self.assertEqual(set(root.iterdir()), {data_dir})
+        self.assertEqual(set(data_dir.iterdir()), {private_path, public_path})
+        self.assertEqual(load_private_key(private_path).public_key().public_bytes_raw(),
+                         load_public_key(public_path).public_bytes_raw())
+
+        public_bytes = public_path.read_bytes()
+        private_bytes = private_path.read_bytes()
+        initialize_data(python, data_dir)
+        self.assertEqual(public_path.read_bytes(), public_bytes)
+        self.assertEqual(private_path.read_bytes(), private_bytes)
 
 
 if __name__ == "__main__":

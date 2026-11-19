@@ -1,10 +1,10 @@
 # PerfLens-Server
 
-PerfLens 的独立内网激活服务器。客户端以现有 UID 登记，首次请求自动签发，适用于受控内网。管理页按 UID 停发或恢复签发。
+PerfLens 的独立内网激活服务器。设备首次登记后逐台审批，获批设备自动领取并续签授权。服务端校验更新制品并用激活私钥签署更新清单。
 
 ## 环境初始化
 
-在全新机器上部署前，运行 setup 脚本初始化环境。脚本优先检测本机的 64 位 Python 3.13；若未安装，会自动下载官方独立便携版 CPython 3.13 到 `private/python`（无需安装系统级软件包或管理员权限），随后创建 `private/activation-venv`、安装依赖包并初始化签名密钥与数据库。
+在全新机器上部署前，运行 setup 脚本初始化环境。脚本优先检测本机的 64 位 Python 3.13；若未安装，会自动下载官方独立便携版 CPython 3.13 到 `private/python`（无需安装系统级软件包或管理员权限）。随后创建 `private/activation-venv`、安装依赖包并初始化激活密钥。
 
 ### Windows
 
@@ -35,7 +35,7 @@ bash setup.sh --python /usr/local/bin/python3.13
 bash setup.sh --force
 ```
 
-初始化成功后，在 `deploy.bat` / `deploy.sh` 顶部填写 `PERFLENS_ADMIN_USERNAME` 和 `PERFLENS_ADMIN_PASSWORD` 即可开始部署。
+首次初始化会在 `private/activation/` 生成 `activation-private.pem` 和 `activation-public.pem`。重复运行 setup 会使用已有的激活密钥。初始化后可选择内网 HTTP 或 HTTPS 部署。
 
 ## 部署
 
@@ -84,27 +84,44 @@ bash deploy.sh --install-service
 
 脚本同时启动激活和在线更新。发行目录默认是脚本旁的 `distribution`。Windows 在 `DISTRIBUTION_DIR` 中配置，Linux 在 `distribution_dir` 中配置，支持绝对路径和相对于脚本的路径。服务启动时创建该目录。
 
-部署脚本默认监听 `0.0.0.0:8787`。可在 BAT 中修改 `ACTIVATION_HOST` 和 `ACTIVATION_PORT`，在 Bash 中修改 `listen_host` 和 `listen_port`。将端口的访问范围限制在使用 PerfLens 的内网。
+部署脚本默认监听 `0.0.0.0:8787`。可在 BAT 中修改 `ACTIVATION_HOST` 和 `ACTIVATION_PORT`，在 Bash 中修改 `listen_host` 和 `listen_port`。用防火墙将端口限制在使用 PerfLens 的内网。
 
 ## 管理与打包
 
-- 默认在服务主机打开 `http://127.0.0.1:8787/admin` 登录。其他内网机器通过 HTTPS 登录。在 BAT 中填写 `ACTIVATION_TLS_CERTFILE` 和 `ACTIVATION_TLS_KEYFILE`，或在 Bash 中填写 `tls_certfile` 和 `tls_keyfile` 启用 HTTPS。浏览器和 PerfLens 客户端需信任签发 TLS 证书的 CA，访问地址需匹配证书。
-- 部署脚本默认将 `PERFLENS_ADMIN_ALLOW_HTTP` 设为 `0`。在可信内网需要使用 HTTP 管理时，将脚本中的值改为 `1`，保持 TLS 配置为空，然后重启服务。HTTP 下 Basic Auth 凭据未经加密。
-- 管理页显示登记 UID、计算机名、来源 IP、客户端版本、首次登记、最近请求、最近签发到期和签发开关。来源 IP 优先采用服务器看到的客户端连接地址：经公网访问时为客户端出口公网 IP，经内网访问时为内网 IP。默认每次授权 1440 分钟，修改从下一次签发起生效。停发后，客户端已领取的授权有效至到期。
-- 将服务器的 `private/activation/activation-public.pem` 复制到客户端仓库的 `private/activation-public.pem`。在客户端 `buildscript/package.bat` 中填写 `PERFLENS_PACKAGE_ACTIVATION_IP`（或 `PERFLENS_PACKAGE_ACTIVATION_HOST`）和可选的 `PERFLENS_PACKAGE_ACTIVATION_PORT`，使用客户端可达的服务器 IP 或域名。启用 HTTPS 时将 `PERFLENS_PACKAGE_ACTIVATION_SCHEME` 改为 `https`。运行 `buildscript\package.bat --check --no-pause` 校验，再运行 `buildscript\package.bat` 打包。
-- 将数据目录限制给运行服务和发布更新的账号。停机备份 `activation.sqlite3`、`activation-private.pem`、`activation-public.pem` 和已发布的 `updates` 目录。恢复时使用同一套密钥，以便已打包客户端继续验签。首次初始化后可用相同数据目录重复运行 `init` 校验或补导公钥。
+- **内网 HTTP**。设置 `PERFLENS_ADMIN_ALLOW_HTTP=1`，TLS 证书和私钥路径留空。激活、更新和 `/admin` 均可通过 HTTP 使用，服务只接受来自私有内网或回环地址的 HTTP 连接。HTTP 模式下管理员凭据和设备信息为明文，适用于受控内网直连。
+- **HTTPS**。在 BAT 填写 `ACTIVATION_TLS_CERTFILE` 和 `ACTIVATION_TLS_KEYFILE`，或在 Bash 填写 `tls_certfile` 和 `tls_keyfile`。浏览器和客户端通过与证书匹配的 HTTPS 地址连接，并信任签发 CA。关闭 HTTP 开关时，回环仍可用于服务主机本地 HTTP 维护。
+- `/admin` 始终校验管理员凭据。`PERFLENS_ADMIN_NETWORKS` 可额外限制来源，填写逗号分隔的 CIDR。留空时，HTTP 开关开启允许内网和回环管理，关闭时只允许回环。直接运行 `serve` 也可重复传入 `--admin-network`。服务按 TCP 对端地址判断来源。
+- 管理页显示待审批设备的 UID、计算机名、来源 IP 和版本。核对资产记录后选择「审批通过」。分组策略适用于已审批设备，默认分组固定停发。在线租约默认 1440 分钟，停发对后续签发有效，已领取的租约有效至原到期时间。
+- 客户端打包目录 `private/` 分别放入服务端使用的 `activation-public.pem` 和离线签发机导出的 `offline-license-public.pem`。在客户端 `buildscript/package.bat` 填写服务地址、协议和端口，再运行 `package.bat --check --no-pause`。HTTP 仅接受字面私有 IPv4（`10.0.0.0/8`、`172.16.0.0/12`、`192.168.0.0/16`）和 IPv6 `fc00::/7`。域名和其他 IP 使用 HTTPS。
+- 限制服务数据目录权限。停机备份 `activation.sqlite3`、`activation-private.pem`、`activation-public.pem` 和 `updates`。离线授权管理员另外备份离线签名私钥。可用同一数据目录重复运行 `init` 校验或补导在线公钥。
 
-客户端调用 `POST /api/v1/activate`，发送 `{"uid":"<64位小写十六进制UID>"}`。成功返回 `200` 和 `{"code":"..."}`，停发返回 `403`，UID 格式错误返回 `422`。客户端按签名中的 UTC 到期时间续期。建议用系统时间同步服务保持客户端和服务器的时钟一致。
+客户端通过打包配置的地址调用 `POST /api/v1/activate` 并发送 `{"uid":"<64位小写十六进制UID>"}`。成功返回 `200` 和 `{"code":"..."}`，待审批或停发返回 `403`，UID 格式错误返回 `422`。客户端按签名中的 UTC 到期时间续期。
 
-激活请求可附带 `computer_name`、`local_ip`（IPv4 或 IPv6）和 `client_version`。服务在成功签发时按 UID 保存元数据；数据库保留兼容字段名 `local_ip`，但优先保存连接来源 IP，仅在无法读取有效连接地址时回退到客户端上报的网卡地址。既有记录在下次成功请求时更新，无需重新打包客户端。桌面客户端启动时上报一次，即使本机已有有效授权缓存。服务启动时自动升级 SQLite，历史记录的未知字段显示「—」，旧客户端可继续按 UID 激活。
+激活请求可附带 `computer_name`、`local_ip`（IPv4 或 IPv6）和 `client_version`。首次登记及后续请求均可更新元数据。`local_ip` 优先记录连接来源地址，缺少有效连接地址时使用客户端上报值。桌面客户端启动时上报一次。UID 与元数据用于资产登记，防止仿冒已获批的 UID 需要独立设备凭据。
 
-默认启动关闭代理头解析，不直接信任 `X-Forwarded-For`。如果部署经过 Nginx、Cloudflare 等反向代理，连接来源可能是代理地址，需要按实际拓扑配置可信代理后才能使用其转发的客户端地址。
+### 手工签发离线授权
+
+在管理员保管的机器上用 Python 3.13 和本仓库依赖生成离线密钥。复制公钥用于客户端打包。按已核对的授权记录、UID 和到期时间签发 JSON。
+
+```text
+python -m activation_server init-signing-key --purpose offline-license --key-dir private/offline-signing
+python -m activation_server issue-offline --signing-key private/offline-signing/offline-license-private.pem --uid <设备UID> --expires-at 2027-01-01T00:00:00Z --output issued.json
+```
+
+### 从旧版切换
+
+1. 先限制管理入口并备份数据。若曾远程通过 HTTP 登录，轮换管理员凭据，核对授权和已发布版本。
+2. 按新公钥组合及部署选定的地址和协议构建客户端。按已核对的授权记录换发离线授权，经可信内部分发渠道交付新版。
+3. 在维护窗口切换服务。SQLite 自动迁移并保留分组、显式停发状态及已有租约的到期时间。已有设备也需核对后逐台审批才能续签。先验证少量设备，再扩大部署。
+4. 受管 Windows 设备升级后，可用企业应用控制策略限制旧版和篡改版运行。
 
 ## 发布与管理在线更新
 
-支持以下三种方式发布更高或新的稳定版本 `X.Y.Z`（要求打包时使用同一激活服务器地址与公钥）：
+直接使用打包生成的 `manifest.json`。三个发布入口都会核对清单中的激活公钥指纹、安装 EXE 和解包 ZIP 的大小及 SHA-256。服务端根据清单生成 `update.json`，使用现有激活私钥签名，并通过 `/api/v1/updates/windows-x64/latest` 返回 `{payload, signature}`。客户端先用内置激活公钥验签，再校验下载文件。
 
-1. **网页端直接上传（推荐）**：登录 `/admin` 切换到「版本管理」标签页，选择或拖入打包输出目录（或 `manifest.json`、Setup EXE 和 Unpacked ZIP），分片流式校验签名后直接写入 `private/activation/updates`，不产生 `distribution` 副本。上传默认进入 **灰度测试** 阶段（可选择初始灰度名单来源：默认灰度名单、继承已有版本或空白名单），也可直接设为全量发布或暂存停用。
+旧客户端可继续通过原服务地址获取更高版本。打包和发布时沿用客户端已信任的激活密钥。
+
+1. **网页端直接上传（推荐）**。在 `/admin` 的「版本管理」选择打包生成的 `manifest.json`、Setup EXE 和 Unpacked ZIP。服务校验上传的制品并签署更新清单，写入 `private/activation/updates`。上传默认进入灰度测试，可选继承名单、全量发布或停用。
 2. **`distribution` 目录自动监听**：将同一批次的安装 EXE、解包 ZIP 和 `manifest.json` 复制到 `distribution` 目录：
 
 ```text
@@ -114,7 +131,7 @@ distribution/
   manifest.json
 ```
 
-服务每 5 秒检查 `distribution`，校验公钥指纹、产物大小和 SHA-256 后，将其**移动**到 `private/activation/updates/<version>/`（同盘零拷贝，并自动删除已消费的 `distribution/manifest.json`，避免双份存储），并默认进入 **灰度测试** 阶段（自动复制当前「默认灰度名单」）。若存在历史遗留文件，可在管理页「版本管理」中一键清理冗余。
+服务每 5 秒检查 `distribution`，校验激活公钥指纹、制品大小和 SHA-256 后，将文件**移动**到 `private/activation/updates/<version>/`（同盘零拷贝，并自动删除已消费的 `distribution/manifest.json`，避免双份存储），并默认进入 **灰度测试** 阶段（自动复制当前「默认灰度名单」）。若存在历史遗留文件，可在管理页「版本管理」中一键清理冗余。
 
 3. **手动 CLI 发布**：使用部署环境的 Python 并指定服务数据目录（默认复制保留源文件并进入灰度测试、复制默认灰度名单；附加 `--move` 移走源文件、`--full` 直接全量发布、`--inherit-from none|<version>` 指定继承源）：
 

@@ -2,9 +2,10 @@
 import asyncio
 import base64
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import closing
+from contextlib import closing, redirect_stderr
 import hashlib
 from http.client import HTTPConnection
+from io import StringIO
 import json
 from pathlib import Path
 import re
@@ -22,7 +23,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 import uvicorn
 
 from activation_server.app import Registry, create_app
-from activation_server.protocol import ACTIVATION_PATH, verify_code
+from activation_server.protocol import ACTIVATION_PATH, public_key_fingerprint, verify_code
 from activation_server.updates import (
     SIGNING_PREFIX,
     STAGE_CANARY,
@@ -39,17 +40,21 @@ class ActivationServerTests(unittest.TestCase):
     def setUp(self):
         self.folder = Path(tempfile.mkdtemp(prefix="perflens-server-test-"))
         self.key = Ed25519PrivateKey.generate()
+        self.public_key = self.key.public_key()
         self.now = 1800000000
         self.uid = "a" * 64
         self.db = self.folder / "activation.sqlite3"
         self.registry = Registry(self.db, self.key, lambda: self.now)
+
+    def application(self, **options):
+        return create_app(self.registry, "test-admin", "test-password", **options)
 
     def start_server(self, *, distribution_dir=None):
         listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.addCleanup(listener.close)
         listener.bind(("127.0.0.1", 0))
         self.port = listener.getsockname()[1]
-        app = create_app(self.registry, "test-admin", "test-password", distribution_dir=distribution_dir)
+        app = self.application(distribution_dir=distribution_dir)
         server = uvicorn.Server(uvicorn.Config(app, log_level="critical", lifespan="on", proxy_headers=False))
         worker = threading.Thread(target=server.run, kwargs={"sockets": [listener]}, daemon=True)
         worker.start()
@@ -75,36 +80,42 @@ class ActivationServerTests(unittest.TestCase):
             response = connection.getresponse()
             return response.status, response.read().decode("utf-8")
 
-    def write_release(self, folder, version):
+    def read_update_manifest(self, body):
+        envelope = json.loads(body)
+        self.assertEqual(set(envelope), {"payload", "signature"})
+        payload = base64.b64decode(envelope["payload"], validate=True)
+        signature = base64.b64decode(envelope["signature"], validate=True)
+        self.public_key.verify(signature, SIGNING_PREFIX + payload)
+        return json.loads(payload)
+
+    def write_release(self, folder, version, *, origin="https://activation.example.test:8787"):
         folder.mkdir(exist_ok=True)
-        public = self.key.public_key().public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
         artifacts = []
         for name in artifact_names(version).values():
             contents = name.encode("ascii")
             (folder / name).write_bytes(contents)
             artifacts.append({"file": name, "bytes": len(contents), "sha256": hashlib.sha256(contents).hexdigest()})
-        record = {"version": version, "activation_server": "http://127.0.0.1:8787", "artifacts": artifacts,
-                  "activation_public_key_sha256": hashlib.sha256(public).hexdigest()}
+        record = {"version": version, "activation_server": origin, "artifacts": artifacts,
+                  "activation_public_key_sha256": public_key_fingerprint(self.public_key)}
         (folder / "manifest.json").write_text(json.dumps(record), encoding="utf-8")
         return folder
 
-    def test_lan_http_admin_requires_opt_in_and_credentials(self):
-        async def get_admin_status(app, auth=None):
-            headers = [(b"authorization", b"Basic " + base64.b64encode(auth))] if auth else []
+    def test_remote_transport_requires_lan_opt_in_and_admin_authentication(self):
+        async def request_status(app, scheme, peer="192.168.8.10", auth=None, path="/admin", payload=None):
+            headers = [(b"x-forwarded-for", b"192.168.8.10")]
+            if auth:
+                headers.append((b"authorization", b"Basic " + base64.b64encode(auth)))
+            if payload is not None:
+                headers.append((b"content-type", b"application/json"))
             scope = {
-                "type": "http",
-                "http_version": "1.1",
-                "method": "GET",
-                "path": "/admin",
-                "scheme": "http",
-                "query_string": b"",
-                "headers": headers,
-                "client": ("192.0.2.10", 50000),
+                "type": "http", "asgi": {"version": "3.0", "spec_version": "2.4"},
+                "http_version": "1.1", "method": "GET" if payload is None else "POST", "path": path,
+                "scheme": scheme, "query_string": b"", "headers": headers, "client": (peer, 50000),
             }
             messages = []
 
             async def receive():
-                return {"type": "http.request", "body": b""}
+                return {"type": "http.request", "body": payload or b""}
 
             async def send(message):
                 messages.append(message)
@@ -113,15 +124,67 @@ class ActivationServerTests(unittest.TestCase):
             return messages[0]["status"]
 
         auth = b"test-admin:test-password"
-        with patch.dict("os.environ", {"PERFLENS_ADMIN_ALLOW_HTTP": ""}):
-            restricted = create_app(self.registry, "test-admin", "test-password")
-        with patch.dict("os.environ", {"PERFLENS_ADMIN_ALLOW_HTTP": "1"}):
-            enabled = create_app(self.registry, "test-admin", "test-password")
+        restricted = self.application()
+        restricted_admin = self.application(admin_networks=["192.168.8.0/24"])
+        lan = self.application(allow_http=True)
+        lan_with_admin_filter = self.application(allow_http=True, admin_networks=["192.168.8.11/32"])
+        self.assertEqual(asyncio.run(request_status(restricted, "https", auth=auth)), 403)
+        self.assertEqual(asyncio.run(request_status(restricted_admin, "http", auth=auth)), 403)
+        self.assertEqual(asyncio.run(request_status(restricted_admin, "https", peer="203.0.113.11", auth=auth)), 403)
+        self.assertEqual(asyncio.run(request_status(restricted_admin, "https", auth=auth)), 200)
+        self.assertEqual(asyncio.run(request_status(lan, "http")), 401)
+        self.assertEqual(asyncio.run(request_status(lan, "http", auth=b"test-admin:wrong")), 401)
+        self.assertEqual(asyncio.run(request_status(lan, "http", auth=auth)), 200)
+        self.assertEqual(asyncio.run(request_status(lan, "http", peer="203.0.113.11", auth=auth)), 403)
+        self.assertEqual(asyncio.run(request_status(lan_with_admin_filter, "http", auth=auth)), 403)
 
-        self.assertEqual(asyncio.run(get_admin_status(restricted, auth)), 403)
-        self.assertEqual(asyncio.run(get_admin_status(enabled)), 401)
-        self.assertEqual(asyncio.run(get_admin_status(enabled, b"test-admin:wrong")), 401)
-        self.assertEqual(asyncio.run(get_admin_status(enabled, auth)), 200)
+        payload = json.dumps({"uid": self.uid}).encode("ascii")
+        self.assertEqual(asyncio.run(request_status(lan, "http", path=ACTIVATION_PATH, payload=payload)), 403)
+        self.assertTrue(self.registry.set_auto_issue(self.uid, True))
+        self.assertEqual(asyncio.run(request_status(lan, "http", path=ACTIVATION_PATH, payload=payload)), 200)
+        self.assertEqual(asyncio.run(request_status(lan, "http", peer="203.0.113.11", path=ACTIVATION_PATH, payload=payload)), 403)
+
+        release = self.write_release(self.folder / "lan-release", "1.0.0", origin="http://192.168.8.20:8787")
+        publish_update(self.folder, release, self.key, stage=STAGE_RELEASED)
+        latest = f"{UPDATES_PATH}/latest"
+        self.assertEqual(asyncio.run(request_status(lan, "http", path=latest)), 200)
+        self.assertEqual(asyncio.run(request_status(lan, "http", path=f"{UPDATES_PATH}/1.0.0/installer")), 200)
+        self.assertEqual(asyncio.run(request_status(lan, "http", peer="203.0.113.11", path=latest)), 403)
+
+    def test_publication_rejects_domains_and_non_lan_http_addresses(self):
+        release = self.write_release(self.folder / "https-release", "1.0.0")
+        manifest_path = release / "manifest.json"
+        record = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for host in ("activation.example.test", "198.51.100.1", "127.0.0.1"):
+            with self.subTest(host=host), self.assertRaisesRegex(ValueError, "HTTPS is required"):
+                record["activation_server"] = f"http://{host}:8787"
+                manifest_path.write_text(json.dumps(record), encoding="utf-8")
+                publish_update(self.folder, release, self.key)
+        record["activation_server"] = "http://[fd12::1]:8787"
+        manifest_path.write_text(json.dumps(record), encoding="utf-8")
+        self.assertEqual(publish_update(self.folder, release, self.key), "1.0.0")
+
+    def test_serve_uses_allow_http_for_lan_listeners_only(self):
+        from activation_server.__main__ import main as cli_main
+
+        private_pem = self.key.private_bytes(
+            serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+        (self.folder / "activation-private.pem").write_bytes(private_pem)
+        env = {"PERFLENS_ADMIN_USERNAME": "test-admin", "PERFLENS_ADMIN_PASSWORD": "test-password",
+               "PERFLENS_ADMIN_NETWORKS": "", "PERFLENS_ADMIN_ALLOW_HTTP": "0"}
+        args = ["serve", "--data-dir", str(self.folder), "--host"]
+        with patch.dict("os.environ", env), patch("activation_server.__main__.uvicorn.run") as run, redirect_stderr(StringIO()):
+            with self.assertRaises(SystemExit):
+                cli_main(args + ["0.0.0.0"])
+            run.assert_not_called()
+            with patch.dict("os.environ", {"PERFLENS_ADMIN_ALLOW_HTTP": "1"}):
+                for host in ("activation.example.test", "198.51.100.1"):
+                    with self.subTest(host=host), self.assertRaises(SystemExit):
+                        cli_main(args + [host])
+                run.assert_not_called()
+                cli_main(args + ["0.0.0.0"])
+            run.assert_called_once()
+            self.assertIsNone(run.call_args.kwargs["ssl_certfile"])
 
     def test_registration_duration_and_authenticated_admin_writes(self):
         self.start_server()
@@ -143,6 +206,14 @@ class ActivationServerTests(unittest.TestCase):
             return status, json.loads(body)
 
         self.assertEqual(activate("wrong-uid")[0], 422)
+        self.assertEqual(activate(), (403, {"detail": "issuance_disabled"}))
+        pending_page = self.request("GET", "/admin", auth=auth)[1]
+        self.assertIn("待审批", pending_page)
+        self.assertIn(self.uid, pending_page)
+        client = f"/admin/clients/{self.uid}"
+        self.assertEqual(submit(client, {"auto_issue": "1"}), 403)
+        self.assertEqual(activate()[0], 403)
+        self.assertEqual(submit(client, {"auto_issue": "1", "csrf": csrf}), 303)
         status, initial = activate()
         self.assertEqual(status, 200)
         first_expiry = verify_code(initial["code"], self.uid, self.key.public_key())
@@ -155,7 +226,6 @@ class ActivationServerTests(unittest.TestCase):
         self.now += 30
         self.assertEqual(activate(), (200, initial))
 
-        client = f"/admin/clients/{self.uid}"
         self.assertEqual(submit(client, {"auto_issue": "0", "csrf": csrf}), 303)
         self.assertEqual(activate(), (403, {"detail": "issuance_disabled"}))
         reopened = Registry(self.db, self.key, lambda: self.now)
@@ -172,11 +242,14 @@ class ActivationServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(verify_code(renewed["code"], self.uid, self.key.public_key()), self.now + 120)
 
-    def test_concurrent_first_requests_share_one_lease(self):
+    def test_concurrent_registration_stays_pending_and_approved_requests_share_one_lease(self):
         with ThreadPoolExecutor(max_workers=4) as pool:
+            self.assertEqual(set(pool.map(self.registry.issue, [self.uid] * 8)), {None})
+            self.assertEqual(len(self.registry.view()[1]), 1)
+            self.registry.set_auto_issue(self.uid, True)
             codes = set(pool.map(self.registry.issue, [self.uid] * 8))
         self.assertEqual(len(codes), 1)
-        self.assertEqual(len(self.registry.view()[1]), 1)
+        self.assertNotIn(None, codes)
 
     def test_legacy_database_preserves_lease_and_records_latest_client_metadata(self):
         old_db = self.folder / "legacy.sqlite3"
@@ -193,7 +266,12 @@ class ActivationServerTests(unittest.TestCase):
 
         auth = b"test-admin:test-password"
         self.assertIn('<td class="computer-name">—</td>', self.request("GET", "/admin", auth=auth)[1])
-        code, body = activate(client_version="0.4.1", local_ip="2001:0db8::1", computer_name="测试机<01>")
+        self.assertEqual(activate(client_version="0.4.1", local_ip="2001:0db8::1", computer_name="测试机<01>")[0], 403)
+        pending = self.registry.view()[1][0]
+        self.assertEqual((pending["approved"], pending["expires_at"]), (0, expiry))
+        self.assertEqual(pending["computer_name"], "测试机<01>")
+        self.registry.set_auto_issue(self.uid, True)
+        code, body = activate()
         self.assertEqual(code, 200)
         self.assertEqual(verify_code(json.loads(body)["code"], self.uid, self.key.public_key()), expiry)
         html = self.request("GET", "/admin", auth=auth)[1]
@@ -207,10 +285,10 @@ class ActivationServerTests(unittest.TestCase):
         self.assertEqual(activate(local_ip="999.0.0.1")[0], 422)
         reopened = Registry(old_db, self.key, lambda: self.now)
         row = reopened.view()[1][0]
-        self.assertEqual((row["first_seen"], row["expires_at"], row["client_version"]), (self.now - 60, expiry, "0.4.1"))
-        self.assertEqual((row["local_ip"], row["computer_name"]), ("127.0.0.1", "测试机<01>"))
+        self.assertEqual((row["first_seen"], row["expires_at"], row["client_version"]), (self.now - 60, expiry, "0.4.2"))
+        self.assertEqual((row["local_ip"], row["computer_name"]), ("127.0.0.1", "Other"))
         html = self.request("GET", "/admin", auth=auth)[1]
-        self.assertIn("<td>0.4.1</td>", html)
+        self.assertIn("<td>0.4.2</td>", html)
         self.assertIn("<td>127.0.0.1</td>", html)
 
     def activate_from(self, source_ip, *, reported_ip=None, headers=()):
@@ -218,7 +296,7 @@ class ActivationServerTests(unittest.TestCase):
         if reported_ip is not None:
             payload["local_ip"] = reported_ip
         body = json.dumps(payload).encode("utf-8")
-        app = create_app(self.registry, "test-admin", "test-password")
+        app = self.application()
 
         async def dispatch():
             messages = []
@@ -240,6 +318,9 @@ class ActivationServerTests(unittest.TestCase):
         return asyncio.run(dispatch())
 
     def test_registration_records_connection_ip_instead_of_reported_lan_ip(self):
+        self.assertEqual(self.activate_from("203.0.113.40", reported_ip="192.168.1.100")[0], 403)
+        self.assertEqual(self.registry.view()[1][0]["local_ip"], "203.0.113.40")
+        self.registry.set_auto_issue(self.uid, True)
         for source_ip,normalized in [("203.0.113.41", "203.0.113.41"),
                                      ("2001:0db8:abcd::1", "2001:db8:abcd::1"),
                                      ("192.168.2.35", "192.168.2.35")]:
@@ -258,14 +339,14 @@ class ActivationServerTests(unittest.TestCase):
         self.start_server()
         status,_ = self.request("POST", ACTIVATION_PATH, json.dumps({"uid": self.uid, "local_ip": "192.168.1.10"}),
                                 content_type="application/json", headers={"X-Forwarded-For": "203.0.113.99"})
-        self.assertEqual(status, 200)
+        self.assertEqual(status, 403)
         self.assertEqual(self.registry.view()[1][0]["local_ip"], "127.0.0.1")
         html = self.request("GET", "/admin", auth=b"test-admin:test-password")[1]
         self.assertIn("来源 IP", html)
         self.assertNotIn("本机 IP", html)
 
     def test_registration_without_connection_address_retains_legacy_ip_fallback(self):
-        self.assertEqual(self.activate_from(None, reported_ip="2001:0db8::1")[0], 200)
+        self.assertEqual(self.activate_from(None, reported_ip="2001:0db8::1")[0], 403)
         self.assertEqual(self.registry.view()[1][0]["local_ip"], "2001:db8::1")
 
     def test_published_manifest_is_signed_and_downloads_stay_versioned(self):
@@ -291,14 +372,14 @@ class ActivationServerTests(unittest.TestCase):
         self.assertEqual(publish_update(self.folder, canary_rel, self.key), "0.12.0")
         code, body = self.request("GET", latest)
         self.assertEqual(code, 200)
-        envelope = json.loads(body)
-        payload = base64.b64decode(envelope["payload"])
-        self.key.public_key().verify(base64.b64decode(envelope["signature"]), SIGNING_PREFIX + payload)
-        signed = json.loads(payload)
-        self.assertEqual((signed["version"], signed["server_url"]), ("0.10.0", "http://127.0.0.1:8787"))
+        manifest = self.read_update_manifest(body)
+        self.assertEqual(body, (self.folder / "updates" / "0.10.0" / "update.json").read_text(encoding="ascii"))
+        self.assertEqual((manifest["schema"], manifest["version"], manifest["server_url"]),
+                         (1, "0.10.0", "https://activation.example.test:8787"))
         for kind, name in artifact_names("0.10.0").items():
             self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/{kind}"), (200, name))
-            self.assertEqual(signed["artifacts"][kind]["sha256"], hashlib.sha256(name.encode("ascii")).hexdigest())
+            self.assertEqual(manifest["artifacts"][kind],
+                             {"bytes": len(name), "sha256": hashlib.sha256(name.encode("ascii")).hexdigest()})
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer"), (200, artifact_names("0.9.0")["installer"]))
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.12.0/installer")[0], 404)
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/portable")[0], 404)
@@ -323,13 +404,8 @@ class ActivationServerTests(unittest.TestCase):
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
                 code, body = self.request("GET", latest, headers=canary_headers)
-                if code == 200:
-                    envelope = json.loads(body)
-                    payload = base64.b64decode(envelope["payload"])
-                    if json.loads(payload)["version"] == expected:
-                        signature = base64.b64decode(envelope["signature"])
-                        self.key.public_key().verify(signature, SIGNING_PREFIX + payload)
-                        return code, body
+                if code == 200 and self.read_update_manifest(body)["version"] == expected:
+                    return code, body
                 time.sleep(.01)
             self.fail(f"Update {expected} did not become available")
 
@@ -369,8 +445,12 @@ class ActivationServerTests(unittest.TestCase):
         uid_active = "1" * 64
         uid_expired_disabled = "2" * 64
         self.registry.issue(uid_active, "0.9.0", local_ip="192.168.1.10", computer_name='Node"A"<1>')
+        self.registry.set_auto_issue(uid_active, True)
+        self.registry.issue(uid_active)
         self.now -= 100000
         self.registry.issue(uid_expired_disabled, "0.8.0", local_ip="192.168.1.2", computer_name="NodeB")
+        self.registry.set_auto_issue(uid_expired_disabled, True)
+        self.registry.issue(uid_expired_disabled)
         self.registry.set_auto_issue(uid_expired_disabled, False)
         self.now += 100000
 
@@ -523,7 +603,7 @@ class ActivationServerTests(unittest.TestCase):
         # Disabled 0.10.0 must not appear in /latest or public downloads, while admin download works.
         latest_code, latest_body = self.request("GET", f"{UPDATES_PATH}/latest")
         self.assertEqual(latest_code, 200)
-        latest_payload = json.loads(base64.b64decode(json.loads(latest_body)["payload"]))
+        latest_payload = self.read_update_manifest(latest_body)
         self.assertEqual(latest_payload["version"], "0.9.0")
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer")[0], 404)
         self.assertEqual(
@@ -551,7 +631,7 @@ class ActivationServerTests(unittest.TestCase):
             )[0],
             303,
         )
-        latest_payload = json.loads(base64.b64decode(json.loads(self.request("GET", f"{UPDATES_PATH}/latest")[1])["payload"]))
+        latest_payload = self.read_update_manifest(self.request("GET", f"{UPDATES_PATH}/latest")[1])
         self.assertEqual(latest_payload["version"], "0.10.0")
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer")[0], 200)
 
@@ -566,7 +646,7 @@ class ActivationServerTests(unittest.TestCase):
             )[0],
             303,
         )
-        latest_payload = json.loads(base64.b64decode(json.loads(self.request("GET", f"{UPDATES_PATH}/latest")[1])["payload"]))
+        latest_payload = self.read_update_manifest(self.request("GET", f"{UPDATES_PATH}/latest")[1])
         self.assertEqual(latest_payload["version"], "0.9.0")
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.10.0/installer")[0], 404)
 
@@ -732,8 +812,7 @@ class ActivationServerTests(unittest.TestCase):
             code, body = self.request("GET", f"{UPDATES_PATH}/latest", headers=hdrs)
             if code == 204:
                 return 204, None
-            payload = json.loads(base64.b64decode(json.loads(body)["payload"]))
-            return code, payload["version"]
+            return code, self.read_update_manifest(body)["version"]
 
         # Manage default canary allowlist (pre-registered + activated UID).
         st, body = post_json("/admin/canary/default/add", {"uids": [uid_qa.upper(), uid_dev], "note": "QA团队"})
@@ -846,13 +925,8 @@ class ActivationServerTests(unittest.TestCase):
     def test_cli_publish_update_canary_and_full_flags(self):
         from activation_server.__main__ import main as cli_main
 
-        (self.folder / "activation-private.pem").write_bytes(
-            self.key.private_bytes(
-                serialization.Encoding.PEM,
-                serialization.PrivateFormat.PKCS8,
-                serialization.NoEncryption(),
-            )
-        )
+        (self.folder / "activation-private.pem").write_bytes(self.key.private_bytes(
+            serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
         uid_qa = "e" * 64
         self.registry.add_default_canary_members([uid_qa], note="cli-qa")
 
@@ -868,7 +942,9 @@ class ActivationServerTests(unittest.TestCase):
         cli_main(["publish-update", "--data-dir", str(self.folder), "--release-dir", str(rel_full), "--full"])
         self.assertNotIn("0.11.0", self.registry.version_canary_counts())
         from activation_server.updates import version_stage
-        self.assertEqual(version_stage(self.folder / "updates" / "0.11.0"), STAGE_RELEASED)
+        version_dir = self.folder / "updates" / "0.11.0"
+        self.assertEqual(version_stage(version_dir), STAGE_RELEASED)
+        self.assertEqual(self.read_update_manifest((version_dir / "update.json").read_text(encoding="ascii"))["version"], "0.11.0")
 
     def test_groups_default_creation_migration_and_inheritance_overrides(self):
         """Verify default group auto-creation, legacy override migration, and group/client precedence."""
@@ -876,7 +952,7 @@ class ActivationServerTests(unittest.TestCase):
         self.assertEqual(len(groups), 1)
         default_group = groups[0]
         self.assertEqual(default_group["is_default"], 1)
-        self.assertEqual(default_group["auto_issue"], 1)
+        self.assertEqual(default_group["auto_issue"], 0)
         self.assertEqual(default_group["canary_default"], 0)
         self.assertIsNone(default_group["duration_minutes"])
 
@@ -897,7 +973,8 @@ class ActivationServerTests(unittest.TestCase):
         by_uid = {c["uid"]: c for c in clients}
         self.assertEqual(by_uid[uid_enabled]["group_is_default"], 1)
         self.assertIsNone(by_uid[uid_enabled]["auto_issue_override"])
-        self.assertEqual(by_uid[uid_enabled]["effective_auto_issue"], 1)
+        self.assertEqual(by_uid[uid_enabled]["effective_auto_issue"], 0)
+        self.assertIsNone(migrated.issue(uid_enabled))
         self.assertEqual(by_uid[uid_disabled]["group_is_default"], 1)
         self.assertEqual(by_uid[uid_disabled]["auto_issue_override"], 0)
         self.assertEqual(by_uid[uid_disabled]["effective_auto_issue"], 0)
@@ -908,8 +985,8 @@ class ActivationServerTests(unittest.TestCase):
         uid_b = "4" * 64
         code_a = self.registry.issue(uid_a, "0.9.0", computer_name="Alpha")
         code_b = self.registry.issue(uid_b, "0.9.0", computer_name="Beta")
-        self.assertIsNotNone(code_a)
-        self.assertIsNotNone(code_b)
+        self.assertIsNone(code_a)
+        self.assertIsNone(code_b)
 
         vip = self.registry.create_group(
             "VIP-QA",
@@ -943,6 +1020,10 @@ class ActivationServerTests(unittest.TestCase):
 
         # Switching group back to auto_issue=True and duration_minutes=None restores global duration fallback.
         self.registry.update_group(vip["id"], auto_issue=True, duration_minutes=None)
+        unapproved_uid = "5" * 64
+        self.assertIsNone(self.registry.issue(unapproved_uid))
+        self.registry.set_clients_group([unapproved_uid], vip["id"], clear_override=True)
+        self.assertIsNone(self.registry.issue(unapproved_uid))
         global_dur, _ = self.registry.view()
         reissued = self.registry.issue(uid_a, "0.9.0")
         self.assertEqual(verify_code(reissued, uid_a, self.key.public_key()), self.now + global_dur * 60)
@@ -990,6 +1071,7 @@ class ActivationServerTests(unittest.TestCase):
         # Default group cannot be deleted.
         default_gid = [g["id"] for g in self.registry.list_groups() if g["is_default"]][0]
         self.assertEqual(req_json("DELETE", f"/admin/groups/{default_gid}")[0], 422)
+        self.assertEqual(req_json("POST", f"/admin/groups/{default_gid}", {"auto_issue": True})[0], 422)
 
         # Override uid1 to disabled, then assign [uid1, uid2] to qa with clear_override=True.
         self.registry.set_auto_issue_mode(uid1, "0")
@@ -1048,8 +1130,7 @@ class ActivationServerTests(unittest.TestCase):
             code, body = self.request("GET", f"{UPDATES_PATH}/latest", headers={"X-PerfLens-UID": uid})
             if code == 204:
                 return 204, None
-            payload = json.loads(base64.b64decode(json.loads(body)["payload"]))
-            return code, payload["version"]
+            return code, self.read_update_manifest(body)["version"]
 
         self.assertEqual(latest_ver(uid_qa), (200, "0.9.0"))
         self.assertEqual(self.request("GET", f"{UPDATES_PATH}/0.9.0/installer", headers={"X-PerfLens-UID": uid_qa})[0], 200)

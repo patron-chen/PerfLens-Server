@@ -10,9 +10,10 @@ import secrets
 import tempfile
 from threading import Lock
 import time
-from urllib.parse import urlsplit
 
 from cryptography.hazmat.primitives import serialization
+
+from .protocol import activation_origin
 
 
 UPDATES_PATH = "/api/v1/updates/windows-x64"
@@ -110,13 +111,7 @@ def _validate_manifest_record(record, signing_key):
     version = record.get("version")
     if not isinstance(version, str) or not VERSION_PATTERN.fullmatch(version):
         raise ValueError("Updates require a stable X.Y.Z version")
-    origin = record.get("activation_server")
-    if not isinstance(origin, str) or any(ch.isspace() or not ch.isprintable() for ch in origin) or "\\" in origin:
-        raise ValueError("Package must specify an HTTP(S) activation server origin")
-    url = urlsplit(origin)
-    if (url.scheme not in {"http", "https"} or not url.hostname or url.username is not None or url.port == 0
-            or url.netloc.endswith(":") or url.path or url.query or url.fragment):
-        raise ValueError("Package must specify an HTTP(S) activation server origin")
+    origin = activation_origin(record.get("activation_server"))
     public_key = signing_key.public_key().public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
     if record.get("activation_public_key_sha256") != hashlib.sha256(public_key).hexdigest():
         raise ValueError("Package activation public key does not match this server")

@@ -11,7 +11,10 @@ set "DISTRIBUTION_DIR=distribution"
 set "ACTIVATION_TLS_CERTFILE="
 set "ACTIVATION_TLS_KEYFILE="
 rem Set to 1 to allow HTTP admin on a trusted LAN.
+rem Enable plain HTTP for private LAN clients when the TLS paths above are empty.
 set "PERFLENS_ADMIN_ALLOW_HTTP=0"
+rem Optional administrator CIDRs. In LAN HTTP mode, blank allows private LAN peers.
+set "PERFLENS_ADMIN_NETWORKS="
 
 pushd "%~dp0" || exit /b 1
 

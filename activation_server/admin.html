@@ -1519,7 +1519,7 @@
       <section class="card policy" aria-labelledby="policy">
         <div class="policy-head">
           <h2 id="policy">全局签发策略</h2>
-          <p class="muted-note">新 UID 自动归入默认分组。若分组未设置自定义有效期，将使用此处全局有效期；停发对后续签发生效。</p>
+          <p class="muted-note">新设备归入默认分组，核对资产记录后逐台审批。分组可自定义有效期，停发对后续签发生效。</p>
         </div>
         <form id="policy-form" class="policy-form" method="post" action="/admin/settings" data-saved-duration="$duration">
           <input type="hidden" name="csrf" value="$csrf">
@@ -1990,7 +1990,7 @@
           <h3>分组策略设置</h3>
           <label class="checkbox-label">
             <input type="checkbox" id="group-form-auto-issue" checked>
-            <span>启用自动签发（组内未单机覆盖的客户端均按此开关签发）</span>
+            <span>启用自动签发（适用于本组已审批且跟随分组策略的设备，默认分组固定停发）</span>
           </label>
           <label class="checkbox-label">
             <input type="checkbox" id="group-form-canary-default">
@@ -4423,9 +4423,9 @@
             stopTicker();
             uploadedBytes = totalBytes;
             tracker.record(totalBytes);
-            currentStageText = "正在校验 SHA-256 并签发更新清单…";
+            currentStageText = "正在校验制品 SHA-256 并发布…";
             var avgRate = formatBytesClient(tracker.snapshot().avgBps) + "/s";
-            renderTransferStats("签名校验与发布中，请稍候…（平均速度：" + avgRate + "）");
+            renderTransferStats("校验、签署与发布中，请稍候…（平均速度：" + avgRate + "）");
             return fetch("/admin/updates/upload/" + encodeURIComponent(session.session_id) + "/complete", {
               method: "POST",
               headers: { "X-CSRF-Token": currentCsrf() },
@@ -4435,7 +4435,7 @@
           });
         }).then(function (res) {
           if (!res.ok) {
-            return extractErrorDetail(res, "签发失败（HTTP " + res.status + "）").then(function (detail) {
+            return extractErrorDetail(res, "发布失败（HTTP " + res.status + "）").then(function (detail) {
               throw new Error(detail);
             });
           }
@@ -4870,6 +4870,7 @@
         syncGroupColorSwatches(color);
         groupFormNote.value = isEdit ? (groupData.note || "") : "";
         groupFormAutoIssue.checked = isEdit ? Boolean(groupData.auto_issue) : true;
+        groupFormAutoIssue.disabled = isEdit && Boolean(groupData.is_default);
         groupFormCanaryDefault.checked = isEdit ? Boolean(groupData.canary_default) : false;
         groupFormDuration.value = (isEdit && groupData.duration !== null && groupData.duration !== undefined && groupData.duration !== "") ? String(groupData.duration) : "";
         if (groupFormSyncCanaryWrap) groupFormSyncCanaryWrap.hidden = !isEdit;
@@ -5335,7 +5336,7 @@
         var label = name ? name + " (" + shortUid(uid) + ")" : shortUid(uid);
         submitFormAsync(form, submitter, function () {
           if (modeVal === "inherit") return "已恢复跟随分组策略：" + label;
-          return (modeVal === "1" ? "已启用自动签发（单机覆盖）：" : "已停发客户端（单机覆盖）：") + label;
+          return (modeVal === "1" ? "已允许设备自动签发：" : "已停发设备授权：") + label;
         });
       });
 

@@ -1,14 +1,20 @@
-"""Initialize keys, publish updates, and run the standalone activation server."""
+"""Initialize activation keys, sign licenses, and run the activation server."""
 import argparse
+from datetime import datetime
+from ipaddress import ip_address
+import json
 import logging
 import os
 from pathlib import Path
+import re
+import time
 
 import uvicorn
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from .app import Registry, create_app
+from .protocol import MAX_EXPIRY, UID_PATTERN, is_private_lan_address, signing_message
 from .server_log import file_log_handler
 from .updates import STAGE_CANARY, STAGE_RELEASED, publish_update
 
@@ -20,10 +26,10 @@ def load_private_key(path):
     return key
 
 
-def initialize(directory):
+def initialize(directory, purpose="activation"):
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
-    private_path = directory / "activation-private.pem"
-    public_path = directory / "activation-public.pem"
+    private_path = directory / f"{purpose}-private.pem"
+    public_path = directory / f"{purpose}-public.pem"
     if private_path.exists():
         key = load_private_key(private_path)
     else:
@@ -41,7 +47,36 @@ def initialize(directory):
     else:
         with public_path.open("xb") as handle:
             handle.write(public_key)
-    print(f"Client verification key: {public_path.resolve()}")
+    print(f"Verification key: {public_path.resolve()}")
+
+
+def issue_offline(args):
+    uid = args.uid.strip().lower()
+    if not re.fullmatch(UID_PATTERN, uid):
+        raise ValueError("Expected a 64-character hexadecimal device UID")
+    expiry_date = datetime.fromisoformat(args.expires_at)
+    if expiry_date.tzinfo is None:
+        raise ValueError("Specify an expiration with an explicit timezone, for example 2027-01-01T00:00:00Z")
+    expiry = int(expiry_date.timestamp())
+    if not time.time() < expiry <= MAX_EXPIRY:
+        raise ValueError("Offline expiration must be in the future within the supported UTC calendar range")
+    message = signing_message(uid, expiry, offline=True)
+    key = load_private_key(args.signing_key)
+    record = {"code": f"{message.decode('ascii')}.{key.sign(message).hex()}"}
+    with args.output.open("x", encoding="utf-8", newline="\r\n") as handle:
+        json.dump(record, handle, indent=2)
+        handle.write("\n")
+    print(f"Issued offline authorization: {args.output.resolve()}")
+
+
+def allows_plain_http(host, allow_lan):
+    if host.lower() == "localhost":
+        return True
+    try:
+        address = ip_address(host)
+    except ValueError:
+        return False
+    return address.is_loopback or (allow_lan and (address.is_unspecified or is_private_lan_address(address)))
 
 
 def main(argv=None):
@@ -49,6 +84,14 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="command", required=True)
     init = commands.add_parser("init", help="Create the server signing key and export its public key")
     init.add_argument("--data-dir", type=Path, required=True)
+    keygen = commands.add_parser("init-signing-key", help="Generate a dedicated offline license signing key")
+    keygen.add_argument("--purpose", choices=("offline-license",), required=True)
+    keygen.add_argument("--key-dir", type=Path, required=True)
+    offline = commands.add_parser("issue-offline", help="Sign an offline authorization on the administrator's machine")
+    offline.add_argument("--signing-key", type=Path, required=True)
+    offline.add_argument("--uid", required=True)
+    offline.add_argument("--expires-at", required=True, help="ISO 8601 expiration with an explicit timezone")
+    offline.add_argument("--output", type=Path, required=True)
     publish = commands.add_parser("publish-update", help="Publish a signed Windows x64 update")
     publish.add_argument("--data-dir", type=Path, required=True)
     publish.add_argument("--release-dir", type=Path, required=True)
@@ -75,6 +118,7 @@ def main(argv=None):
     serve.add_argument("--distribution-dir", type=Path, help="Watch a release directory for newer versions")
     serve.add_argument("--ssl-certfile")
     serve.add_argument("--ssl-keyfile")
+    serve.add_argument("--admin-network", action="append", help="Allowed administrator CIDR, repeatable (in addition to loopback)")
     serve.add_argument("--log-dir", type=Path, help="Write timestamped, rotating logs to this directory")
     args = parser.parse_args(argv)
     logger = None
@@ -82,14 +126,21 @@ def main(argv=None):
         if args.command == "init":
             initialize(args.data_dir)
             return
+        if args.command == "init-signing-key":
+            initialize(args.key_dir, args.purpose)
+            return
+        if args.command == "issue-offline":
+            issue_offline(args)
+            return
         if args.command == "publish-update":
             key = load_private_key(args.data_dir / "activation-private.pem")
             stage = STAGE_RELEASED if args.full else STAGE_CANARY
             updates_dir = args.data_dir / "updates"
-            registry = Registry(args.data_dir / "activation.sqlite3", key) if stage == STAGE_CANARY else None
 
             def on_cli_published(version, published_stage):
-                if published_stage == STAGE_CANARY and registry is not None:
+                if published_stage == STAGE_CANARY:
+                    # Touch the roster only after the manifest and artifacts have been verified.
+                    registry = Registry(args.data_dir / "activation.sqlite3", key)
                     registry.init_version_canary(version, args.inherit_from, updates_dir=updates_dir)
 
             version = publish_update(
@@ -115,13 +166,19 @@ def main(argv=None):
             raise ValueError("Set PERFLENS_ADMIN_USERNAME and PERFLENS_ADMIN_PASSWORD to nonempty ASCII credentials")
         if bool(args.ssl_certfile) != bool(args.ssl_keyfile):
             raise ValueError("Specify both --ssl-certfile and --ssl-keyfile for HTTPS")
+        allow_http = os.getenv("PERFLENS_ADMIN_ALLOW_HTTP") == "1"
+        if not args.ssl_certfile and not allows_plain_http(args.host, allow_http):
+            raise ValueError("Configure HTTPS, or set PERFLENS_ADMIN_ALLOW_HTTP=1 for a private LAN listener")
         if not 1 <= args.port <= 65535:
             raise ValueError("Port must be between 1 and 65535")
         key = load_private_key(args.data_dir / "activation-private.pem")
+        admin_networks = args.admin_network or [network.strip() for network in os.getenv("PERFLENS_ADMIN_NETWORKS", "").split(",")
+                                                if network.strip()]
         registry = Registry(args.data_dir / "activation.sqlite3", key)
         if args.distribution_dir is not None:
             args.distribution_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-        app = create_app(registry, username, password, distribution_dir=args.distribution_dir)
+        app = create_app(registry, username, password, admin_networks=admin_networks, allow_http=allow_http,
+                         distribution_dir=args.distribution_dir)
         log_config = None if logger is not None else uvicorn.config.LOGGING_CONFIG
         uvicorn.run(app, host=args.host, port=args.port, workers=1, log_config=log_config,
                     proxy_headers=False, ssl_certfile=args.ssl_certfile, ssl_keyfile=args.ssl_keyfile)

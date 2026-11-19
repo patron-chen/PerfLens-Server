@@ -3,9 +3,9 @@ import asyncio
 from collections import Counter
 from contextlib import asynccontextmanager, closing
 from html import escape
-from ipaddress import ip_address
+from ipaddress import ip_address, ip_network
 import json
-import os
+import logging
 from pathlib import Path
 import re
 import secrets
@@ -21,7 +21,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.security import HTTPBasic
 from pydantic import BaseModel, Field, field_validator
 
-from .protocol import ACTIVATION_PATH, MAX_EXPIRY, UID_PATTERN, signing_message, utc_datetime
+from .protocol import ACTIVATION_PATH, MAX_EXPIRY, PRIVATE_LAN_NETWORKS, UID_PATTERN, is_private_lan_address, signing_message, utc_datetime
 from .updates import (
     MANIFEST_FILENAME,
     STAGE_CANARY,
@@ -36,7 +36,6 @@ from .updates import (
     clean_distribution_redundancy,
     delete_version,
     is_version_accessible,
-    latest_version,
     list_versions,
     resolve_latest_version,
     scan_distribution_redundancy,
@@ -166,7 +165,8 @@ class Registry:
                     uid TEXT PRIMARY KEY,
                     first_seen INTEGER NOT NULL,
                     last_seen INTEGER NOT NULL,
-                    auto_issue INTEGER NOT NULL DEFAULT 1 CHECK (auto_issue IN (0, 1)),
+                    auto_issue INTEGER NOT NULL DEFAULT 0 CHECK (auto_issue IN (0, 1)),
+                    approved INTEGER NOT NULL DEFAULT 0 CHECK (approved IN (0, 1)),
                     expires_at INTEGER,
                     client_version TEXT,
                     local_ip TEXT,
@@ -205,13 +205,14 @@ class Registry:
                         name, color, note, auto_issue, canary_default, duration_minutes,
                         is_default, created_at, updated_at
                     )
-                    VALUES (?, ?, ?, 1, 0, NULL, 1, ?, ?)
+                    VALUES (?, ?, ?, 0, 0, NULL, 1, ?, ?)
                     """,
-                    (DEFAULT_GROUP_NAME, DEFAULT_GROUP_COLOR, "新注册客户端默认归入此分组", now, now),
+                    (DEFAULT_GROUP_NAME, DEFAULT_GROUP_COLOR, "新登记设备归入此分组，需逐台审批", now, now),
                 )
                 default_group_id = cur.lastrowid
             else:
                 default_group_id = default_row["id"]
+                db.execute("UPDATE groups SET auto_issue = 0 WHERE id = ? AND auto_issue = 1", (default_group_id,))
 
             columns = {column["name"] for column in db.execute("PRAGMA table_info(clients)")}
             for name in ("client_version", "local_ip", "computer_name"):
@@ -238,6 +239,10 @@ class Registry:
                     "WHERE group_id IS NULL OR group_id NOT IN (SELECT id FROM groups)",
                     (default_group_id,),
                 )
+            if "approved" not in columns:
+                # Existing UIDs were self-registered. Retain their policies and leases while awaiting review.
+                db.execute("ALTER TABLE clients ADD COLUMN approved INTEGER NOT NULL DEFAULT 0 CHECK (approved IN (0, 1))")
+                db.execute("UPDATE clients SET auto_issue = 0")
             db.execute("CREATE INDEX IF NOT EXISTS idx_clients_group_id ON clients (group_id)")
 
     def _connect(self):
@@ -259,12 +264,15 @@ class Registry:
             now = int(self.clock())
             default_gid = self._default_group_id(db)
             db.execute("""
-                INSERT INTO clients (uid, first_seen, last_seen, group_id, auto_issue_override)
-                VALUES (?, ?, ?, ?, NULL)
-                ON CONFLICT(uid) DO UPDATE SET last_seen = excluded.last_seen
-            """, (uid, now, now, default_gid))
+                INSERT INTO clients (uid, first_seen, last_seen, group_id, auto_issue, client_version, local_ip, computer_name)
+                VALUES (?, ?, ?, ?, 0, ?, ?, ?)
+                ON CONFLICT(uid) DO UPDATE SET last_seen = excluded.last_seen,
+                    client_version = COALESCE(excluded.client_version, clients.client_version),
+                    local_ip = COALESCE(excluded.local_ip, clients.local_ip),
+                    computer_name = COALESCE(excluded.computer_name, clients.computer_name)
+            """, (uid, now, now, default_gid, client_version, local_ip, computer_name))
             policy = db.execute("""
-                SELECT c.auto_issue_override, c.expires_at,
+                SELECT c.approved, c.auto_issue_override, c.expires_at,
                        g.auto_issue AS group_auto_issue,
                        COALESCE(g.duration_minutes, s.duration_minutes) AS effective_duration
                 FROM clients c
@@ -278,20 +286,13 @@ class Registry:
                 if policy["auto_issue_override"] is not None
                 else policy["group_auto_issue"]
             )
-            if not allowed:
+            if not policy["approved"] or not allowed:
                 return None
             expiry = policy["expires_at"]
             if expiry is None or expiry <= now:
                 minutes = policy["effective_duration"]
                 expiry = min(MAX_EXPIRY, now + minutes * 60)
-            db.execute("""
-                UPDATE clients
-                SET expires_at = ?, auto_issue = ?,
-                    client_version = COALESCE(?, client_version),
-                    local_ip = COALESCE(?, local_ip),
-                    computer_name = COALESCE(?, computer_name)
-                WHERE uid = ?
-            """, (expiry, int(bool(allowed)), client_version, local_ip, computer_name, uid))
+            db.execute("UPDATE clients SET expires_at = ? WHERE uid = ?", (expiry, uid))
             message = signing_message(uid, expiry)
             return f"{message.decode('ascii')}.{self.signing_key.sign(message).hex()}"
 
@@ -307,7 +308,7 @@ class Registry:
                        g.auto_issue AS group_auto_issue,
                        g.canary_default AS group_canary_default,
                        g.duration_minutes AS group_duration_minutes,
-                       COALESCE(c.auto_issue_override, g.auto_issue) AS effective_auto_issue
+                       c.auto_issue AS effective_auto_issue
                 FROM clients c
                 JOIN groups dg ON dg.is_default = 1
                 JOIN groups g ON g.id = COALESCE(c.group_id, dg.id)
@@ -330,7 +331,7 @@ class Registry:
         with closing(self._connect()) as db, db:
             db.execute("BEGIN IMMEDIATE")
             row = db.execute("""
-                SELECT g.auto_issue AS group_auto_issue
+                SELECT c.approved, g.auto_issue AS group_auto_issue
                 FROM clients c
                 JOIN groups dg ON dg.is_default = 1
                 JOIN groups g ON g.id = COALESCE(c.group_id, dg.id)
@@ -338,15 +339,12 @@ class Registry:
             """, (uid,)).fetchone()
             if row is None:
                 return False
-            if mode == "inherit":
-                override = None
-                effective = row["group_auto_issue"]
-            else:
-                override = int(mode)
-                effective = override
+            approved = int(bool(row["approved"]) or mode == "1")
+            override = None if mode == "inherit" else int(mode)
+            effective = approved * (row["group_auto_issue"] if override is None else override)
             db.execute(
-                "UPDATE clients SET auto_issue_override = ?, auto_issue = ? WHERE uid = ?",
-                (override, effective, uid),
+                "UPDATE clients SET approved = ?, auto_issue_override = ?, auto_issue = ? WHERE uid = ?",
+                (approved, override, effective, uid),
             )
             return True
 
@@ -442,6 +440,8 @@ class Registry:
                 if auto_issue is _UNSET
                 else (1 if _parse_bool_flag(auto_issue, "auto_issue") else 0)
             )
+            if current["is_default"] and next_auto_issue:
+                raise ValueError("默认分组固定停发，请逐台审批")
             next_canary_default = (
                 current["canary_default"]
                 if canary_default is _UNSET
@@ -475,7 +475,7 @@ class Registry:
                 raise ValueError(f"分组名称「{next_name}」已存在") from None
             # 同步更新跟随分组的客户端冗余 auto_issue 字段，保持外部读一致性
             db.execute(
-                "UPDATE clients SET auto_issue = ? WHERE group_id = ? AND auto_issue_override IS NULL",
+                "UPDATE clients SET auto_issue = approved * ? WHERE group_id = ? AND auto_issue_override IS NULL",
                 (next_auto_issue, group_id),
             )
             if sync_active_canary and active_canary_versions:
@@ -541,7 +541,7 @@ class Registry:
             cur = db.execute(
                 """
                 UPDATE clients
-                SET auto_issue_override = NULL, auto_issue = ?
+                SET auto_issue_override = NULL, auto_issue = approved * ?
                 WHERE group_id = ? AND auto_issue_override IS NOT NULL
                 """,
                 (group["auto_issue"], group_id),
@@ -565,7 +565,7 @@ class Registry:
                 (default_gid, group_id),
             ).rowcount
             db.execute(
-                "UPDATE clients SET auto_issue = ? WHERE group_id = ? AND auto_issue_override IS NULL",
+                "UPDATE clients SET auto_issue = approved * ? WHERE group_id = ? AND auto_issue_override IS NULL",
                 (default_auto_issue, default_gid),
             )
             db.execute("DELETE FROM canary_version_groups WHERE group_id = ?", (group_id,))
@@ -586,7 +586,7 @@ class Registry:
                 cur = db.execute(
                     f"""
                     UPDATE clients
-                    SET group_id = ?, auto_issue_override = NULL, auto_issue = ?
+                    SET group_id = ?, auto_issue_override = NULL, auto_issue = approved * ?
                     WHERE uid IN ({placeholders})
                     """,
                     [group_id, group["auto_issue"], *normalized_uids],
@@ -598,7 +598,7 @@ class Registry:
                 )
                 db.execute(
                     f"""
-                    UPDATE clients SET auto_issue = ?
+                    UPDATE clients SET auto_issue = approved * ?
                     WHERE uid IN ({placeholders}) AND auto_issue_override IS NULL
                     """,
                     [group["auto_issue"], *normalized_uids],
@@ -647,7 +647,7 @@ class Registry:
             rows = db.execute("""
                 SELECT d.uid, d.note, d.added_at,
                        c.computer_name, c.local_ip, c.client_version, c.last_seen,
-                       COALESCE(c.auto_issue_override, g.auto_issue, c.auto_issue) AS auto_issue,
+                       c.auto_issue,
                        g.id AS group_id, g.name AS group_name, g.color AS group_color
                 FROM canary_default_members d
                 LEFT JOIN clients c ON c.uid = d.uid
@@ -776,7 +776,7 @@ class Registry:
                 SELECT m.uid, m.added_at, d.note,
                        CASE WHEN d.uid IS NULL THEN 0 ELSE 1 END AS in_default,
                        c.computer_name, c.local_ip, c.client_version, c.last_seen,
-                       COALESCE(c.auto_issue_override, g.auto_issue, c.auto_issue) AS auto_issue,
+                       c.auto_issue,
                        g.id AS group_id, g.name AS group_name, g.color AS group_color
                 FROM canary_version_members m
                 LEFT JOIN clients c ON c.uid = m.uid
@@ -1097,7 +1097,11 @@ def _client_row(client, groups, csrf, in_default_canary=False):
     group_canary = bool(client["group_canary_default"])
     in_any_default_canary = in_default_canary or group_canary
 
-    label, action, new_value = ("启用", "停发", "0") if allowed else ("停发", "启用", "1")
+    pending = not client["approved"] and client["auto_issue_override"] != 0
+    if pending:
+        label, action, new_value = "待审批", "审批通过", "1"
+    else:
+        label, action, new_value = ("启用", "停发", "0") if allowed else ("停发", "启用", "1")
     computer_name = escape(client["computer_name"] or "")
     local_ip = escape(client["local_ip"] or "")
     client_version = escape(client["client_version"] or "")
@@ -1266,10 +1270,13 @@ def _default_canary_row(member):
     """
 
 
-def create_app(registry, username, password, *, distribution_dir=None):
+def create_app(registry, username, password, *, admin_networks=(), allow_http=False, distribution_dir=None):
     data_dir = Path(registry.path).parent
     updates = data_dir / "updates"
     upload_manager = UploadSessionManager(updates, registry.signing_key)
+    admin_networks = tuple(ip_network(network) for network in admin_networks)
+    if allow_http and not admin_networks:
+        admin_networks = PRIVATE_LAN_NETWORKS
 
     @asynccontextmanager
     async def lifespan(_app):
@@ -1296,20 +1303,34 @@ def create_app(registry, username, password, *, distribution_dir=None):
                 await asyncio.to_thread(publisher.join)
             upload_manager.abort_all()
 
-    app = FastAPI(title="PerfLens activation", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
+    def connection_ip(request):
+        if not request.client:
+            return None
+        try:
+            address = ip_address(request.client.host)
+        except ValueError:
+            return None
+        # Dual-stack listeners can report IPv4 peers as IPv6-mapped addresses.
+        return getattr(address, "ipv4_mapped", None) or address
+
+    async def require_transport(request: Request):
+        if request.scope.get("scheme") == "https":
+            return
+        source = connection_ip(request)
+        if source is not None and (source.is_loopback or (allow_http and is_private_lan_address(source))):
+            return
+        raise HTTPException(403, "HTTPS required")
+
+    app = FastAPI(title="PerfLens activation", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan,
+                  dependencies=[Depends(require_transport)])
     basic = HTTPBasic(realm="PerfLens activation")
     csrf = secrets.token_urlsafe(32)
     template = Template(Path(__file__).with_name("admin.html").read_text(encoding="utf-8"))
-    # Basic Auth credentials are unencrypted over plain HTTP.
-    allow_http_admin = os.getenv("PERFLENS_ADMIN_ALLOW_HTTP") == "1"
 
     async def require_admin(request: Request):
-        if (
-            not allow_http_admin
-            and request.url.scheme != "https"
-            and (not request.client or request.client.host not in {"127.0.0.1", "::1"})
-        ):
-            raise HTTPException(403, "Admin access requires HTTPS or a loopback connection")
+        source = connection_ip(request)
+        if source is None or not (source.is_loopback or any(source in network for network in admin_networks)):
+            raise HTTPException(403, "Admin access is restricted to configured networks")
         credentials = await basic(request)
         username_ok = secrets.compare_digest(credentials.username.encode(), username.encode())
         password_ok = secrets.compare_digest(credentials.password.encode(), password.encode())
@@ -1396,13 +1417,9 @@ def create_app(registry, username, password, *, distribution_dir=None):
 
     @app.post(ACTIVATION_PATH)
     def activate(payload: ActivationRequest, request: Request):
-        source_ip = payload.local_ip
-        if request.client is not None:
-            try:
-                # The connection sees the NAT/public egress address; the payload only knows the local interface.
-                source_ip = str(ip_address(request.client.host))
-            except ValueError:
-                pass
+        # The transport peer is authoritative for the recorded source address.
+        source = connection_ip(request)
+        source_ip = str(source) if source is not None else payload.local_ip
         code = registry.issue(payload.uid, payload.client_version, local_ip=source_ip, computer_name=payload.computer_name)
         if code is None:
             raise HTTPException(403, "issuance_disabled")
@@ -1482,7 +1499,7 @@ def create_app(registry, username, password, *, distribution_dir=None):
             f'</label>'
             for g in groups
         )
-        latest_released = latest_version(updates)
+        latest_released = next((item["version"] for item in versions if item["is_latest"]), None)
         latest_canary = next((item["version"] for item in versions if item["is_latest_canary"]), None)
         latest_canary_pill = (
             f'<button type="button" id="latest-canary-pill" class="version-pill version-pill-canary version-pill-btn" '
@@ -1643,6 +1660,7 @@ def create_app(registry, username, password, *, distribution_dir=None):
                 raise HTTPException(422, "Invalid auto-issue value")
             if not registry.set_auto_issue_mode(normalized_uid, allowed):
                 raise HTTPException(404, "UID has not registered")
+            logging.getLogger("uvicorn.error").info("Activation policy updated uid=%s mode=%s", normalized_uid, allowed)
         if "group_id" in form:
             raw_gid = form["group_id"]
             if not raw_gid.isascii() or not raw_gid.isdecimal():

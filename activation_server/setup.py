@@ -235,7 +235,6 @@ def install_requirements(venv_python: Path, requirements_path: Path, pip_index: 
 
 
 def initialize_data(venv_python: Path, data_dir: Path) -> None:
-    print(f"Initializing signing key and database in {data_dir}...", flush=True)
     subprocess.run(
         [str(venv_python), "-B", "-m", "activation_server", "init", "--data-dir", str(data_dir)],
         check=True
@@ -257,7 +256,7 @@ def run_setup(args: argparse.Namespace) -> int:
         print("[3/4] Installing dependencies...", flush=True)
         install_requirements(venv_python, REQUIREMENTS_FILE, pip_index=args.pip_index_url)
 
-        print("[4/4] Initializing server directories and signing keys...", flush=True)
+        print("[4/4] Initializing server directories and the activation signing key...", flush=True)
         args.distribution_dir.mkdir(parents=True, exist_ok=True)
         args.log_dir.mkdir(parents=True, exist_ok=True)
         args.data_dir.mkdir(parents=True, exist_ok=True)

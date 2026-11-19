@@ -11,7 +11,10 @@ distribution_dir=distribution
 tls_certfile=''
 tls_keyfile=''
 # Set to 1 to allow HTTP admin on a trusted LAN.
+# Set to 1 for private LAN HTTP when the TLS paths above are empty.
 export PERFLENS_ADMIN_ALLOW_HTTP=0
+# Optional administrator CIDRs. In LAN HTTP mode, blank allows private LAN peers.
+export PERFLENS_ADMIN_NETWORKS=''
 
 show_help()
 {
