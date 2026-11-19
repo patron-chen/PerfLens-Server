@@ -1519,7 +1519,7 @@
       <section class="card policy" aria-labelledby="policy">
         <div class="policy-head">
           <h2 id="policy">全局签发策略</h2>
-          <p class="muted-note">新设备归入默认分组，核对资产记录后逐台审批。分组可自定义有效期，停发对后续签发生效。</p>
+          <p class="muted-note">新设备归入默认分组。默认人工审批，可在分组管理中启用自动审批。停发对后续签发生效。</p>
         </div>
         <form id="policy-form" class="policy-form" method="post" action="/admin/settings" data-saved-duration="$duration">
           <input type="hidden" name="csrf" value="$csrf">
@@ -1582,6 +1582,7 @@
                 <span>同时恢复跟随分组</span>
               </label>
               <button type="button" id="batch-assign-group-btn" class="btn btn-sm btn-primary">批量移入分组</button>
+              <button type="button" id="batch-delete-clients-btn" class="btn btn-sm btn-danger-outline">批量删除</button>
               <button type="button" id="batch-clear-selection-btn" class="btn btn-sm">取消选择</button>
             </div>
           </div>
@@ -1663,7 +1664,7 @@
               <tr>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="groups" data-sort="groupName"><span>分组名称与备注</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="groups" data-sort="memberCount"><span>成员数量</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
-                <th scope="col"><button type="button" class="sort-btn" data-sort-table="groups" data-sort="autoIssue"><span>自动签发策略</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
+                <th scope="col"><button type="button" class="sort-btn" data-sort-table="groups" data-sort="autoIssue" title="按签发策略排序"><span>审批与签发</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="groups" data-sort="canaryDefault"><span>默认灰度策略</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                 <th scope="col"><button type="button" class="sort-btn" data-sort-table="groups" data-sort="groupDuration"><span>签发有效期</span><span class="sort-arrow" aria-hidden="true">↕</span></button></th>
                 <th scope="col" class="th-plain">操作</th>
@@ -1989,8 +1990,12 @@
         <div class="modal-section">
           <h3>分组策略设置</h3>
           <label class="checkbox-label">
+            <input type="checkbox" id="group-form-auto-approve">
+            <span>启用自动审批（本组待审批设备下次请求时自动通过）</span>
+          </label>
+          <label class="checkbox-label">
             <input type="checkbox" id="group-form-auto-issue" checked>
-            <span>启用自动签发（适用于本组已审批且跟随分组策略的设备，默认分组固定停发）</span>
+            <span>启用自动签发（适用于本组已审批且跟随分组策略的设备）</span>
           </label>
           <label class="checkbox-label">
             <input type="checkbox" id="group-form-canary-default">
@@ -2174,6 +2179,7 @@
       var batchGroupSelect = document.getElementById("batch-group-select");
       var batchClearOverride = document.getElementById("batch-clear-override");
       var batchAssignGroupBtn = document.getElementById("batch-assign-group-btn");
+      var batchDeleteClientsBtn = document.getElementById("batch-delete-clients-btn");
       var batchClearSelectionBtn = document.getElementById("batch-clear-selection-btn");
       var filterEmpty = document.getElementById("filter-empty");
       var clearFiltersBtn = document.getElementById("clear-filters-btn");
@@ -2246,6 +2252,7 @@
       var groupColorSwatches = document.querySelectorAll("#group-color-swatches .color-swatch");
       var groupFormColor = document.getElementById("group-form-color");
       var groupFormNote = document.getElementById("group-form-note");
+      var groupFormAutoApprove = document.getElementById("group-form-auto-approve");
       var groupFormAutoIssue = document.getElementById("group-form-auto-issue");
       var groupFormCanaryDefault = document.getElementById("group-form-canary-default");
       var groupFormSyncCanaryWrap = document.getElementById("group-form-sync-canary-wrap");
@@ -2844,6 +2851,7 @@
         if (batchSelectedCount) batchSelectedCount.textContent = String(selectedCount);
         if (batchBar) batchBar.hidden = selectedCount === 0;
         if (batchAssignGroupBtn) batchAssignGroupBtn.disabled = selectedCount === 0 || !batchGroupSelect || !batchGroupSelect.value;
+        if (batchDeleteClientsBtn) batchDeleteClientsBtn.disabled = selectedCount === 0;
 
         if (clientsSelectAll) {
           var checkedVisible = 0;
@@ -4869,8 +4877,8 @@
         groupFormColor.value = color;
         syncGroupColorSwatches(color);
         groupFormNote.value = isEdit ? (groupData.note || "") : "";
+        groupFormAutoApprove.checked = isEdit && Boolean(groupData.auto_approve);
         groupFormAutoIssue.checked = isEdit ? Boolean(groupData.auto_issue) : true;
-        groupFormAutoIssue.disabled = isEdit && Boolean(groupData.is_default);
         groupFormCanaryDefault.checked = isEdit ? Boolean(groupData.canary_default) : false;
         groupFormDuration.value = (isEdit && groupData.duration !== null && groupData.duration !== undefined && groupData.duration !== "") ? String(groupData.duration) : "";
         if (groupFormSyncCanaryWrap) groupFormSyncCanaryWrap.hidden = !isEdit;
@@ -4937,6 +4945,7 @@
             name: name,
             color: groupFormColor.value.trim() || "#2563eb",
             note: groupFormNote.value.trim() || null,
+            auto_approve: Boolean(groupFormAutoApprove.checked),
             auto_issue: Boolean(groupFormAutoIssue.checked),
             canary_default: Boolean(groupFormCanaryDefault.checked),
             duration_minutes: durationMinutes
@@ -4977,6 +4986,7 @@
               name: row.getAttribute("data-name") || "",
               color: row.getAttribute("data-color") || "#2563eb",
               note: row.getAttribute("data-note") || "",
+              auto_approve: row.getAttribute("data-auto-approve") === "1",
               auto_issue: row.getAttribute("data-auto-issue") === "1",
               canary_default: row.getAttribute("data-canary-default") === "1",
               duration: row.getAttribute("data-duration")
@@ -5070,6 +5080,32 @@
           });
         });
       }
+      // 批量删除已勾选客户端及其在线激活租约与灰度记录
+      if (batchDeleteClientsBtn)
+      {
+        batchDeleteClientsBtn.addEventListener("click", function ()
+        {
+          var uids = Array.from(state.selectedClientUids);
+          if (uids.length === 0) return;
+          var confirmMsg = "确认删除已选中的 " + uids.length + " 台客户端吗？\n删除后将一并清除这些设备的审批状态、在线激活租约、分组归属及灰度名单记录，客户端下次启动时将清除本地激活缓存并需重新注册审批。";
+          if (!window.confirm(confirmMsg)) return;
+          batchDeleteClientsBtn.disabled = true;
+          sendAdminJson("/admin/clients/delete", { uids: uids }).then(function (res)
+          {
+            for (var i = 0; i < uids.length; i++)
+            {
+              state.selectedClientUids.delete(uids[i]);
+              state.selectedDefaultCanaryUids.delete(uids[i]);
+            }
+            showToast("已删除 " + (res.deleted || uids.length) + " 台客户端及其在线激活记录", "ok");
+            return refreshAdmin(true);
+          }).catch(function (err)
+          {
+            showToast(err && err.message ? err.message : "批量删除客户端失败", "error");
+            syncBatchBarUI();
+          });
+        });
+      }
       if (gotoGroupsBtn) {
         gotoGroupsBtn.addEventListener("click", function () {
           setActiveTab("groups");
@@ -5123,6 +5159,31 @@
           }).catch(function (err) {
             toggleCanaryBtn.disabled = false;
             showToast(err && err.message ? err.message : "操作失败", "error");
+          });
+          return;
+        }
+        // 单条删除客户端及其在线激活租约与灰度记录
+        var deleteClientBtn = e.target.closest("[data-delete-client]");
+        if (deleteClientBtn)
+        {
+          var delUid = deleteClientBtn.getAttribute("data-delete-client") || "";
+          if (!delUid) return;
+          var delRow = deleteClientBtn.closest("tr");
+          var delName = delRow ? (delRow.getAttribute("data-computer") || "") : "";
+          var delLabel = delName ? (delName + " (" + shortUid(delUid) + ")") : shortUid(delUid);
+          var delConfirmMsg = "确认删除客户端「" + delLabel + "」吗？\n删除后将一并清除该设备的审批状态、在线激活租约、分组归属及灰度名单记录，客户端下次启动时将清除本地激活缓存并需重新注册审批。";
+          if (!window.confirm(delConfirmMsg)) return;
+          deleteClientBtn.disabled = true;
+          sendAdminJson("/admin/clients/" + encodeURIComponent(delUid), null, "DELETE").then(function ()
+          {
+            state.selectedClientUids.delete(delUid);
+            state.selectedDefaultCanaryUids.delete(delUid);
+            showToast("已删除客户端：" + delLabel, "ok");
+            return refreshAdmin(true);
+          }).catch(function (err)
+          {
+            deleteClientBtn.disabled = false;
+            showToast(err && err.message ? err.message : "删除客户端失败", "error");
           });
         }
       });

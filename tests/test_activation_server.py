@@ -206,7 +206,7 @@ class ActivationServerTests(unittest.TestCase):
             return status, json.loads(body)
 
         self.assertEqual(activate("wrong-uid")[0], 422)
-        self.assertEqual(activate(), (403, {"detail": "issuance_disabled"}))
+        self.assertEqual(activate(), (403, {"detail": "approval_required"}))
         pending_page = self.request("GET", "/admin", auth=auth)[1]
         self.assertIn("待审批", pending_page)
         self.assertIn(self.uid, pending_page)
@@ -1028,6 +1028,105 @@ class ActivationServerTests(unittest.TestCase):
         reissued = self.registry.issue(uid_a, "0.9.0")
         self.assertEqual(verify_code(reissued, uid_a, self.key.public_key()), self.now + global_dur * 60)
 
+    def test_default_group_can_enable_auto_issue_for_approved_inheriting_clients(self):
+        self.start_server()
+        default_group = self.registry.list_groups()[0]
+        self.assertEqual(default_group["auto_issue"], 0)
+        auth = b"test-admin:test-password"
+        html = self.request("GET", "/admin", auth=auth)[1]
+        csrf = re.search(r'name="csrf" value="([^"]+)"', html)[1]
+
+        def activate(uid):
+            status, body = self.request("POST", ACTIVATION_PATH, json.dumps({"uid": uid}), content_type="application/json")
+            return status, json.loads(body)
+
+        def update_policy(enabled):
+            status, body = self.request(
+                "POST", f"/admin/groups/{default_group['id']}", json.dumps({"auto_issue": enabled}),
+                auth=auth, content_type="application/json", headers={"X-CSRF-Token": csrf},
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(json.loads(body)["group"]["auto_issue"], int(enabled))
+
+        paused_uid = "b" * 64
+        for uid in (self.uid, paused_uid):
+            self.assertEqual(activate(uid), (403, {"detail": "approval_required"}))
+            self.assertTrue(self.registry.set_auto_issue_mode(uid, "1"))
+        self.registry.set_auto_issue_mode(self.uid, "inherit")
+        self.registry.set_auto_issue_mode(paused_uid, "0")
+        self.assertEqual(activate(self.uid), (403, {"detail": "issuance_disabled"}))
+
+        update_policy(True)
+        reopened = Registry(self.db, self.key, lambda: self.now)
+        self.assertEqual(reopened.get_group(default_group["id"])["auto_issue"], 1)
+        status, body = activate(self.uid)
+        self.assertEqual(status, 200)
+        expiry = verify_code(body["code"], self.uid, self.public_key)
+        self.assertEqual(expiry, self.now + 1440 * 60)
+        self.assertEqual(activate(paused_uid), (403, {"detail": "issuance_disabled"}))
+        self.assertEqual(activate("c" * 64), (403, {"detail": "approval_required"}))
+
+        update_policy(False)
+        self.assertEqual(activate(self.uid), (403, {"detail": "issuance_disabled"}))
+        client = next(row for row in reopened.view()[1] if row["uid"] == self.uid)
+        self.assertEqual((client["effective_auto_issue"], client["expires_at"]), (0, expiry))
+
+    def test_group_auto_approval_is_opt_in_and_independent_of_issuance(self):
+        self.start_server()
+        auth = b"test-admin:test-password"
+        html = self.request("GET", "/admin", auth=auth)[1]
+        csrf = re.search(r'name="csrf" value="([^"]+)"', html)[1]
+        default_group = self.registry.list_groups()[0]
+        self.assertEqual((default_group["auto_approve"], default_group["auto_issue"]), (0, 0))
+        group_path = f"/admin/groups/{default_group['id']}"
+
+        def admin_post(path, **settings):
+            status, body = self.request(
+                "POST", path, json.dumps(settings), auth=auth, content_type="application/json",
+                headers={"X-CSRF-Token": csrf},
+            )
+            self.assertEqual(status, 200)
+            return json.loads(body)["group"]
+
+        def activate(uid):
+            status, body = self.request("POST", ACTIVATION_PATH, json.dumps({"uid": uid}), content_type="application/json")
+            return status, json.loads(body)
+
+        def client(uid):
+            return next(row for row in self.registry.view()[1] if row["uid"] == uid)
+
+        pending = (403, {"detail": "approval_required"})
+        paused_uid = "b" * 64
+        self.assertEqual(activate(self.uid), pending)
+        self.assertEqual(activate(paused_uid), pending)
+        self.registry.set_auto_issue_mode(paused_uid, "0")
+
+        self.assertEqual(admin_post(group_path, auto_approve=True)["auto_approve"], 1)
+        reopened = Registry(self.db, self.key, lambda: self.now)
+        self.assertEqual(reopened.get_group(default_group["id"])["auto_approve"], 1)
+        self.assertEqual(client(self.uid)["approved"], 0)
+        self.assertEqual(activate(self.uid), (403, {"detail": "issuance_disabled"}))
+        row = client(self.uid)
+        self.assertEqual((row["approved"], row["auto_issue_override"], row["expires_at"]), (1, None, None))
+
+        self.assertEqual(admin_post(group_path, auto_issue=True)["auto_approve"], 1)
+        new_uid = "c" * 64
+        status, body = activate(new_uid)
+        self.assertEqual(status, 200)
+        self.assertEqual(verify_code(body["code"], new_uid, self.public_key), self.now + 1440 * 60)
+        self.assertEqual(activate(paused_uid), pending)
+        self.assertEqual((client(paused_uid)["approved"], client(paused_uid)["auto_issue_override"]), (0, 0))
+
+        admin_post(group_path, auto_approve=False)
+        self.assertEqual(activate(new_uid), (200, body))
+        custom_uid = "d" * 64
+        self.assertEqual(activate(custom_uid), pending)
+        custom = admin_post("/admin/groups", name="Auto-approved QA", auto_approve=True, duration_minutes=30)
+        self.registry.set_clients_group([custom_uid], custom["id"], clear_override=False)
+        status, body = activate(custom_uid)
+        self.assertEqual(status, 200)
+        self.assertEqual(verify_code(body["code"], custom_uid, self.public_key), self.now + 30 * 60)
+
     def test_group_crud_validation_delete_reassignment_and_csrf(self):
         """Verify HTTP admin group endpoints, CSRF protection, validation errors, and member reassignment on delete."""
         self.start_server()
@@ -1056,6 +1155,7 @@ class ActivationServerTests(unittest.TestCase):
         self.assertEqual(req_json("POST", "/admin/groups", {"name": "   "})[0], 422)
         self.assertEqual(req_json("POST", "/admin/groups", {"name": "BadColor", "color": "#zzz"})[0], 422)
         self.assertEqual(req_json("POST", "/admin/groups", {"name": "BadDur", "duration_minutes": 0})[0], 422)
+        self.assertEqual(req_json("POST", "/admin/groups", {"name": "BadApproval", "auto_approve": "sometimes"})[0], 422)
 
         # Create custom group & reject duplicate names.
         c_code, c_body = req_json(
@@ -1065,13 +1165,13 @@ class ActivationServerTests(unittest.TestCase):
         )
         self.assertEqual(c_code, 200)
         qa = json.loads(c_body)["group"]
+        self.assertEqual(qa["auto_approve"], 0)
         self.assertEqual(req_json("POST", "/admin/groups", {"name": "QA Team"})[0], 422)
         self.assertEqual(req_json("POST", "/admin/groups/1/reset-overrides", {}, include_csrf=False)[0], 403)
         self.assertEqual(req_json("DELETE", f"/admin/groups/{qa['id']}", include_csrf=False)[0], 403)
         # Default group cannot be deleted.
         default_gid = [g["id"] for g in self.registry.list_groups() if g["is_default"]][0]
         self.assertEqual(req_json("DELETE", f"/admin/groups/{default_gid}")[0], 422)
-        self.assertEqual(req_json("POST", f"/admin/groups/{default_gid}", {"auto_issue": True})[0], 422)
 
         # Override uid1 to disabled, then assign [uid1, uid2] to qa with clear_override=True.
         self.registry.set_auto_issue_mode(uid1, "0")
@@ -1239,3 +1339,110 @@ class ActivationServerTests(unittest.TestCase):
             f'data-group-id="{dev_group["id"]}"',
         ):
             self.assertIn(marker, updated_html)
+
+    def test_delete_clients_single_batch_canary_cleanup_and_reregistration(self):
+        """Verify single/batch client deletion clears lease, group, and canary records and requires re-approval."""
+        self.start_server()
+        auth = b"test-admin:test-password"
+        uid_one = "9" * 64
+        uid_two = "a" * 64
+        uid_three = "b" * 64
+        uid_unregistered_canary = "f" * 64
+
+        # Register three clients and approve them with active leases inside a custom group.
+        vip_group = self.registry.create_group("Team-Alpha", auto_issue=True, duration_minutes=60)
+        for uid, name in ((uid_one, "Box-1"), (uid_two, "Box-2"), (uid_three, "Box-3")):
+            self.registry.issue(uid, "0.9.0", computer_name=name)
+            self.registry.set_auto_issue_mode(uid, "1")
+        self.registry.set_clients_group([uid_one, uid_two, uid_three], vip_group["id"], clear_override=True)
+        for uid in (uid_one, uid_two, uid_three):
+            self.assertIsNotNone(self.registry.issue(uid, "0.9.0"))
+
+        # Add registered and pre-registered UIDs into default and version canary lists.
+        self.registry.add_default_canary_members([uid_one, uid_two, uid_unregistered_canary], note="canary-check")
+        rel_10 = self.write_release(self.folder / "del-1.0.0", "1.0.0")
+        publish_update(self.folder, rel_10, self.key, stage=STAGE_CANARY)
+        self.registry.init_version_canary("1.0.0", "default", updates_dir=self.folder / "updates")
+
+        _, html = self.request("GET", "/admin", auth=auth)
+        self.assertIn(f'data-delete-client="{uid_one}"', html)
+        self.assertIn('id="batch-delete-clients-btn"', html)
+        csrf = re.search(r'name="csrf" value="([^"]+)"', html)[1]
+
+        def req_json(method, path, payload=None, *, include_csrf=True):
+            hdrs = {"X-CSRF-Token": csrf} if include_csrf else None
+            body = json.dumps(payload) if payload is not None else None
+            return self.request(
+                method,
+                path,
+                body,
+                auth=auth,
+                content_type="application/json" if body is not None else None,
+                headers=hdrs,
+            )
+
+        def activate(uid):
+            st, body = self.request("POST", ACTIVATION_PATH, json.dumps({"uid": uid}), content_type="application/json")
+            return st, json.loads(body)
+
+        # CSRF and validation checks for single and batch delete endpoints.
+        self.assertEqual(req_json("DELETE", f"/admin/clients/{uid_one}", include_csrf=False)[0], 403)
+        self.assertEqual(req_json("POST", "/admin/clients/delete", {"uids": [uid_one]}, include_csrf=False)[0], 403)
+        self.assertEqual(req_json("DELETE", "/admin/clients/not-a-valid-uid")[0], 422)
+        self.assertEqual(req_json("POST", "/admin/clients/delete", {"uids": ["invalid"]})[0], 422)
+        self.assertEqual(req_json("POST", "/admin/clients/delete", {"uids": []})[0], 422)
+        self.assertEqual(req_json("DELETE", f"/admin/clients/{uid_unregistered_canary}")[0], 404)
+
+        # Single delete removes uid_one from clients, default canary, and version canary.
+        del_code, del_body = req_json("DELETE", f"/admin/clients/{uid_one.upper()}")
+        self.assertEqual(del_code, 200, del_body)
+        del_payload = json.loads(del_body)
+        self.assertEqual(del_payload["deleted"], 1)
+        self.assertEqual(del_payload["deleted_uids"], [uid_one])
+        self.assertEqual(del_payload["removed_default_canary"], 1)
+        self.assertEqual(del_payload["removed_version_canary"], 1)
+        self.assertEqual(self.registry.get_group(vip_group["id"])["member_count"], 2)
+        self.assertNotIn(uid_one, self.registry.default_canary_uids())
+        self.assertFalse(self.registry.is_canary_member("1.0.0", uid_one))
+        self.assertEqual(
+            self.request("GET", f"{UPDATES_PATH}/1.0.0/installer", headers={"X-PerfLens-UID": uid_one})[0],
+            404,
+        )
+        self.assertEqual(req_json("DELETE", f"/admin/clients/{uid_one}")[0], 404)
+
+        # Deleted client requesting activation again re-registers in default group as pending and gets approval_required.
+        self.now += 10
+        self.assertEqual(activate(uid_one), (403, {"detail": "approval_required"}))
+        _, after_rereg = self.registry.view()
+        rereg_row = {c["uid"]: c for c in after_rereg}[uid_one]
+        self.assertEqual(rereg_row["group_is_default"], 1)
+        self.assertEqual(rereg_row["approved"], 0)
+        self.assertIsNone(rereg_row["expires_at"])
+        self.assertIsNone(rereg_row["auto_issue_override"])
+
+        # Contrast: pausing an already-approved client returns issuance_disabled (preserving its active lease until expiry).
+        self.registry.set_auto_issue_mode(uid_three, "0")
+        self.assertEqual(activate(uid_three), (403, {"detail": "issuance_disabled"}))
+
+        # Re-approving the re-registered client issues a brand-new lease.
+        self.registry.set_auto_issue_mode(uid_one, "1")
+        reapproved_status, reapproved_body = activate(uid_one)
+        self.assertEqual(reapproved_status, 200)
+        self.assertEqual(verify_code(reapproved_body["code"], uid_one, self.public_key), self.now + 1440 * 60)
+
+        # Batch delete removes registered clients while keeping pre-registered (unregistered) canary allowlist UIDs intact.
+        b_code, b_body = req_json(
+            "POST",
+            "/admin/clients/delete",
+            {"uids": [uid_two, uid_three, uid_unregistered_canary]},
+        )
+        self.assertEqual(b_code, 200, b_body)
+        b_payload = json.loads(b_body)
+        self.assertEqual(b_payload["deleted"], 2)
+        self.assertEqual(b_payload["deleted_uids"], [uid_two, uid_three])
+        self.assertEqual(b_payload["removed_default_canary"], 1)
+        self.assertEqual(b_payload["removed_version_canary"], 1)
+        self.assertIn(uid_unregistered_canary, self.registry.default_canary_uids())
+        self.assertTrue(self.registry.is_canary_member("1.0.0", uid_unregistered_canary))
+        _, remaining_clients = self.registry.view()
+        self.assertEqual([c["uid"] for c in remaining_clients], [uid_one])

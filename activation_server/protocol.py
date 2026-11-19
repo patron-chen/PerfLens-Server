@@ -11,6 +11,9 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
 
 ACTIVATION_PATH = "/api/v1/activate"
+# 区分未审批/删除后重注册（需客户端清除本地在线缓存）与普通已审批停发
+APPROVAL_REQUIRED_DETAIL = "approval_required"
+ISSUANCE_DISABLED_DETAIL = "issuance_disabled"
 UID_PATTERN = r"[0-9a-f]{64}"
 MAX_EXPIRY = 253402300799  # Last whole Unix second representable as a UTC datetime.
 _CODE_PATTERN = re.compile(rf"PL1\.({UID_PATTERN})\.([1-9][0-9]{{0,11}})\.([0-9a-f]{{128}})")

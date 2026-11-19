@@ -21,7 +21,17 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from fastapi.security import HTTPBasic
 from pydantic import BaseModel, Field, field_validator
 
-from .protocol import ACTIVATION_PATH, MAX_EXPIRY, PRIVATE_LAN_NETWORKS, UID_PATTERN, is_private_lan_address, signing_message, utc_datetime
+from .protocol import (
+    ACTIVATION_PATH,
+    APPROVAL_REQUIRED_DETAIL,
+    ISSUANCE_DISABLED_DETAIL,
+    MAX_EXPIRY,
+    PRIVATE_LAN_NETWORKS,
+    UID_PATTERN,
+    is_private_lan_address,
+    signing_message,
+    utc_datetime,
+)
 from .updates import (
     MANIFEST_FILENAME,
     STAGE_CANARY,
@@ -50,6 +60,7 @@ _GROUP_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
 _UNSET = object()
 DEFAULT_GROUP_NAME = "默认分组"
 DEFAULT_GROUP_COLOR = "#64748b"
+DEFAULT_GROUP_NOTE = "新登记设备归入此分组"
 
 
 def _normalize_group_name(name):
@@ -152,6 +163,7 @@ class Registry:
                     name TEXT NOT NULL UNIQUE,
                     color TEXT NOT NULL DEFAULT '#2563eb',
                     note TEXT,
+                    auto_approve INTEGER NOT NULL DEFAULT 0 CHECK (auto_approve IN (0, 1)),
                     auto_issue INTEGER NOT NULL DEFAULT 1 CHECK (auto_issue IN (0, 1)),
                     canary_default INTEGER NOT NULL DEFAULT 0 CHECK (canary_default IN (0, 1)),
                     duration_minutes INTEGER CHECK (duration_minutes IS NULL OR duration_minutes > 0),
@@ -196,6 +208,13 @@ class Registry:
                 CREATE INDEX IF NOT EXISTS idx_canary_version_groups_gid ON canary_version_groups (group_id);
             """)
             db.execute("BEGIN IMMEDIATE")
+            group_columns = {column["name"] for column in db.execute("PRAGMA table_info(groups)")}
+            if "auto_approve" not in group_columns:
+                db.execute("ALTER TABLE groups ADD COLUMN auto_approve INTEGER NOT NULL DEFAULT 0 CHECK (auto_approve IN (0, 1))")
+                db.execute(
+                    "UPDATE groups SET note = ? WHERE is_default = 1 AND note = ?",
+                    (DEFAULT_GROUP_NOTE, "新登记设备归入此分组，需逐台审批"),
+                )
             default_row = db.execute("SELECT id FROM groups WHERE is_default = 1").fetchone()
             if default_row is None:
                 now = int(self.clock())
@@ -207,12 +226,11 @@ class Registry:
                     )
                     VALUES (?, ?, ?, 0, 0, NULL, 1, ?, ?)
                     """,
-                    (DEFAULT_GROUP_NAME, DEFAULT_GROUP_COLOR, "新登记设备归入此分组，需逐台审批", now, now),
+                    (DEFAULT_GROUP_NAME, DEFAULT_GROUP_COLOR, DEFAULT_GROUP_NOTE, now, now),
                 )
                 default_group_id = cur.lastrowid
             else:
                 default_group_id = default_row["id"]
-                db.execute("UPDATE groups SET auto_issue = 0 WHERE id = ? AND auto_issue = 1", (default_group_id,))
 
             columns = {column["name"] for column in db.execute("PRAGMA table_info(clients)")}
             for name in ("client_version", "local_ip", "computer_name"):
@@ -240,7 +258,9 @@ class Registry:
                     (default_group_id,),
                 )
             if "approved" not in columns:
-                # Existing UIDs were self-registered. Retain their policies and leases while awaiting review.
+                # Pre-approval databases initially enabled the default group. Apply the new default once.
+                db.execute("UPDATE groups SET auto_issue = 0 WHERE id = ?", (default_group_id,))
+                # Retain device overrides and existing leases while awaiting review.
                 db.execute("ALTER TABLE clients ADD COLUMN approved INTEGER NOT NULL DEFAULT 0 CHECK (approved IN (0, 1))")
                 db.execute("UPDATE clients SET auto_issue = 0")
             db.execute("CREATE INDEX IF NOT EXISTS idx_clients_group_id ON clients (group_id)")
@@ -257,7 +277,8 @@ class Registry:
             raise RuntimeError("Default group is missing")
         return row["id"]
 
-    def issue(self, uid, client_version=None, *, local_ip=None, computer_name=None):
+    def issue_with_status(self, uid, client_version=None, *, local_ip=None, computer_name=None):
+        """登记或更新客户端并尝试签发在线租约，返回 (签名码, 拒绝原因 detail)。"""
         with closing(self._connect()) as db, db:
             # Serialize the policy read, registration and lease update with admin writes.
             db.execute("BEGIN IMMEDIATE")
@@ -273,6 +294,7 @@ class Registry:
             """, (uid, now, now, default_gid, client_version, local_ip, computer_name))
             policy = db.execute("""
                 SELECT c.approved, c.auto_issue_override, c.expires_at,
+                       g.auto_approve AS group_auto_approve,
                        g.auto_issue AS group_auto_issue,
                        COALESCE(g.duration_minutes, s.duration_minutes) AS effective_duration
                 FROM clients c
@@ -286,15 +308,31 @@ class Registry:
                 if policy["auto_issue_override"] is not None
                 else policy["group_auto_issue"]
             )
-            if not policy["approved"] or not allowed:
-                return None
+            approved = bool(policy["approved"])
+            # Approve pending devices on request and keep an explicit device stop in effect.
+            if not approved and policy["group_auto_approve"] and policy["auto_issue_override"] != 0:
+                approved = True
+                db.execute("UPDATE clients SET approved = 1, auto_issue = ? WHERE uid = ?", (allowed, uid))
+            if not approved or not allowed:
+                # Pending devices without a lease must clear cached online activation.
+                if not approved and policy["expires_at"] is None:
+                    return None, APPROVAL_REQUIRED_DETAIL
+                return None, ISSUANCE_DISABLED_DETAIL
             expiry = policy["expires_at"]
             if expiry is None or expiry <= now:
                 minutes = policy["effective_duration"]
                 expiry = min(MAX_EXPIRY, now + minutes * 60)
             db.execute("UPDATE clients SET expires_at = ? WHERE uid = ?", (expiry, uid))
             message = signing_message(uid, expiry)
-            return f"{message.decode('ascii')}.{self.signing_key.sign(message).hex()}"
+            return f"{message.decode('ascii')}.{self.signing_key.sign(message).hex()}", None
+
+    def issue(self, uid, client_version=None, *, local_ip=None, computer_name=None):
+        return self.issue_with_status(
+            uid,
+            client_version,
+            local_ip=local_ip,
+            computer_name=computer_name,
+        )[0]
 
     def view(self):
         with closing(self._connect()) as db:
@@ -380,6 +418,7 @@ class Registry:
         *,
         color=None,
         note=None,
+        auto_approve=False,
         auto_issue=True,
         canary_default=False,
         duration_minutes=None,
@@ -387,6 +426,7 @@ class Registry:
         cleaned_name = _normalize_group_name(name)
         cleaned_color = _normalize_group_color(color, fallback="#2563eb")
         cleaned_note = _normalize_group_note(note)
+        allow_approval = int(_parse_bool_flag(auto_approve, "auto_approve"))
         allow_issue = 1 if _parse_bool_flag(auto_issue, "auto_issue") else 0
         allow_canary = 1 if _parse_bool_flag(canary_default, "canary_default") else 0
         parsed_duration = _parse_optional_duration(duration_minutes, self.clock)
@@ -397,12 +437,12 @@ class Registry:
                 cur = db.execute(
                     """
                     INSERT INTO groups (
-                        name, color, note, auto_issue, canary_default, duration_minutes,
+                        name, color, note, auto_approve, auto_issue, canary_default, duration_minutes,
                         is_default, created_at, updated_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
                     """,
-                    (cleaned_name, cleaned_color, cleaned_note, allow_issue, allow_canary, parsed_duration, now, now),
+                    (cleaned_name, cleaned_color, cleaned_note, allow_approval, allow_issue, allow_canary, parsed_duration, now, now),
                 )
             except sqlite3.IntegrityError:
                 raise ValueError(f"分组名称「{cleaned_name}」已存在") from None
@@ -416,6 +456,7 @@ class Registry:
         name=_UNSET,
         color=_UNSET,
         note=_UNSET,
+        auto_approve=_UNSET,
         auto_issue=_UNSET,
         canary_default=_UNSET,
         duration_minutes=_UNSET,
@@ -435,13 +476,16 @@ class Registry:
                 else _normalize_group_color(color, fallback=current["color"] or DEFAULT_GROUP_COLOR)
             )
             next_note = current["note"] if note is _UNSET else _normalize_group_note(note)
+            next_auto_approve = (
+                current["auto_approve"]
+                if auto_approve is _UNSET
+                else int(_parse_bool_flag(auto_approve, "auto_approve"))
+            )
             next_auto_issue = (
                 current["auto_issue"]
                 if auto_issue is _UNSET
                 else (1 if _parse_bool_flag(auto_issue, "auto_issue") else 0)
             )
-            if current["is_default"] and next_auto_issue:
-                raise ValueError("默认分组固定停发，请逐台审批")
             next_canary_default = (
                 current["canary_default"]
                 if canary_default is _UNSET
@@ -456,7 +500,7 @@ class Registry:
                 db.execute(
                     """
                     UPDATE groups
-                    SET name = ?, color = ?, note = ?, auto_issue = ?,
+                    SET name = ?, color = ?, note = ?, auto_approve = ?, auto_issue = ?,
                         canary_default = ?, duration_minutes = ?, updated_at = ?
                     WHERE id = ?
                     """,
@@ -464,6 +508,7 @@ class Registry:
                         next_name,
                         next_color,
                         next_note,
+                        next_auto_approve,
                         next_auto_issue,
                         next_canary_default,
                         next_duration,
@@ -604,6 +649,59 @@ class Registry:
                     [group["auto_issue"], *normalized_uids],
                 )
             return cur.rowcount
+
+    def delete_clients(self, uids):
+        """删除已注册客户端及其审批状态、在线租约、分组归属与默认/版本灰度名单记录。"""
+        normalized_uids = []
+        seen = set()
+        for item in uids:
+            uid = _normalize_uid(item)
+            if uid not in seen:
+                seen.add(uid)
+                normalized_uids.append(uid)
+        if not normalized_uids:
+            return {
+                "deleted": 0,
+                "deleted_uids": [],
+                "removed_default_canary": 0,
+                "removed_version_canary": 0,
+            }
+        with closing(self._connect()) as db, db:
+            db.execute("BEGIN IMMEDIATE")
+            placeholders = ",".join("?" for _ in normalized_uids)
+            # 仅针对实际已注册在 clients 表中的 UID 执行删除与关联灰度清理，避免误删从未注册的预置灰度白名单。
+            existing_rows = db.execute(
+                f"SELECT uid FROM clients WHERE uid IN ({placeholders})",
+                normalized_uids,
+            ).fetchall()
+            existing_set = {row["uid"] for row in existing_rows}
+            deleted_uids = [uid for uid in normalized_uids if uid in existing_set]
+            if not deleted_uids:
+                return {
+                    "deleted": 0,
+                    "deleted_uids": [],
+                    "removed_default_canary": 0,
+                    "removed_version_canary": 0,
+                }
+            del_placeholders = ",".join("?" for _ in deleted_uids)
+            deleted = db.execute(
+                f"DELETE FROM clients WHERE uid IN ({del_placeholders})",
+                deleted_uids,
+            ).rowcount
+            removed_default_canary = db.execute(
+                f"DELETE FROM canary_default_members WHERE uid IN ({del_placeholders})",
+                deleted_uids,
+            ).rowcount
+            removed_version_canary = db.execute(
+                f"DELETE FROM canary_version_members WHERE uid IN ({del_placeholders})",
+                deleted_uids,
+            ).rowcount
+            return {
+                "deleted": deleted,
+                "deleted_uids": deleted_uids,
+                "removed_default_canary": removed_default_canary,
+                "removed_version_canary": removed_version_canary,
+            }
 
     def canary_versions_for_uid(self, uid):
         normalized = _normalize_uid(uid)
@@ -1157,6 +1255,7 @@ def _client_row(client, groups, csrf, in_default_canary=False):
               {inherit_btn}
             </form>
             <button type="button" class="btn btn-sm {canary_btn_cls}" data-default-canary-toggle="{uid}" data-in-default="{1 if in_default_canary else 0}" aria-label="{canary_btn_label} {uid}">{canary_btn_label}</button>
+            <button type="button" class="btn btn-sm btn-danger-outline" data-delete-client="{uid}" aria-label="删除 {uid}">删除</button>
           </div></td>
         </tr>
     """
@@ -1168,6 +1267,7 @@ def _group_row(group, global_duration):
     color = escape(group["color"] or DEFAULT_GROUP_COLOR)
     note = escape(group.get("note") or "")
     is_default = bool(group["is_default"])
+    auto_approve = bool(group["auto_approve"])
     auto_issue = bool(group["auto_issue"])
     canary_default = bool(group["canary_default"])
     dur = group["duration_minutes"]
@@ -1183,6 +1283,11 @@ def _group_row(group, global_duration):
     if override_count > 0:
         member_html += f' <span class="policy-tag is-override" title="其中 {override_count} 台存在单机签发覆盖">{override_count} 台覆盖</span>'
 
+    approval_badge = (
+        '<span class="badge badge-ok">自动审批</span>'
+        if auto_approve
+        else '<span class="muted-note">人工审批</span>'
+    )
     issue_badge = (
         '<span class="badge badge-ok">允许签发</span>'
         if auto_issue
@@ -1210,7 +1315,7 @@ def _group_row(group, global_duration):
         else f'<button type="button" class="btn btn-sm btn-danger-outline" data-delete-group="{gid}" data-group-name="{name}">删除</button>'
     )
     return f"""
-        <tr data-group-id="{gid}" data-name="{name}" data-color="{color}" data-note="{note}" data-auto-issue="{1 if auto_issue else 0}" data-canary-default="{1 if canary_default else 0}" data-duration="{'' if dur is None else dur}" data-is-default="{1 if is_default else 0}" data-member-count="{member_count}" data-override-count="{override_count}">
+        <tr data-group-id="{gid}" data-name="{name}" data-color="{color}" data-note="{note}" data-auto-approve="{int(auto_approve)}" data-auto-issue="{1 if auto_issue else 0}" data-canary-default="{1 if canary_default else 0}" data-duration="{'' if dur is None else dur}" data-is-default="{1 if is_default else 0}" data-member-count="{member_count}" data-override-count="{override_count}">
           <td>
             <div class="group-name-cell">
               <span class="group-dot group-dot-lg" style="background:{color}"></span>
@@ -1221,7 +1326,7 @@ def _group_row(group, global_duration):
             </div>
           </td>
           <td>{member_html}</td>
-          <td>{issue_badge}</td>
+          <td>{approval_badge} {issue_badge}</td>
           <td>{canary_badge}</td>
           <td>{duration_html}</td>
           <td class="action-cell">
@@ -1420,9 +1525,18 @@ def create_app(registry, username, password, *, admin_networks=(), allow_http=Fa
         # The transport peer is authoritative for the recorded source address.
         source = connection_ip(request)
         source_ip = str(source) if source is not None else payload.local_ip
-        code = registry.issue(payload.uid, payload.client_version, local_ip=source_ip, computer_name=payload.computer_name)
+        code, denial_reason = registry.issue_with_status(
+            payload.uid,
+            payload.client_version,
+            local_ip=source_ip,
+            computer_name=payload.computer_name,
+        )
         if code is None:
-            raise HTTPException(403, "issuance_disabled")
+            return JSONResponse(
+                {"detail": denial_reason or ISSUANCE_DISABLED_DETAIL},
+                status_code=403,
+                headers={"Cache-Control": "no-store"},
+            )
         return JSONResponse({"code": code}, headers={"Cache-Control": "no-store"})
 
     @app.get(f"{UPDATES_PATH}/latest")
@@ -1564,6 +1678,7 @@ def create_app(registry, username, password, *, admin_networks=(), allow_http=Fa
                 body.get("name"),
                 color=body.get("color"),
                 note=body.get("note"),
+                auto_approve=body.get("auto_approve", False),
                 auto_issue=body.get("auto_issue", True),
                 canary_default=body.get("canary_default", False),
                 duration_minutes=body.get("duration_minutes"),
@@ -1588,6 +1703,7 @@ def create_app(registry, username, password, *, admin_networks=(), allow_http=Fa
                 name=body["name"] if "name" in body else _UNSET,
                 color=body["color"] if "color" in body else _UNSET,
                 note=body["note"] if "note" in body else _UNSET,
+                auto_approve=body["auto_approve"] if "auto_approve" in body else _UNSET,
                 auto_issue=body["auto_issue"] if "auto_issue" in body else _UNSET,
                 canary_default=body["canary_default"] if "canary_default" in body else _UNSET,
                 duration_minutes=body["duration_minutes"] if "duration_minutes" in body else _UNSET,
@@ -1645,6 +1761,49 @@ def create_app(registry, username, password, *, admin_networks=(), allow_http=Fa
             raise HTTPException(422, str(error)) from None
         return JSONResponse(
             {"updated": updated, "groups": registry.list_groups()},
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.post("/admin/clients/delete", dependencies=[Depends(require_admin_csrf)])
+    async def delete_clients_endpoint(request: Request):
+        """批量删除已注册客户端并清理其租约及灰度记录。"""
+        body = await read_admin_json(request, max_bytes=256 * 1024)
+        try:
+            uids = _normalize_uid_list(body)
+            result = await asyncio.to_thread(registry.delete_clients, uids)
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from None
+        if result["deleted"]:
+            logging.getLogger("uvicorn.error").info(
+                "Clients deleted count=%d uids=%s removed_default_canary=%d removed_version_canary=%d",
+                result["deleted"],
+                ",".join(result["deleted_uids"]),
+                result["removed_default_canary"],
+                result["removed_version_canary"],
+            )
+        return JSONResponse(
+            {**result, "groups": registry.list_groups()},
+            headers={"Cache-Control": "no-store"},
+        )
+
+    @app.delete("/admin/clients/{uid}", dependencies=[Depends(require_admin_csrf)])
+    async def delete_client_endpoint(uid: str):
+        """单条删除已注册客户端并清理其租约及灰度记录。"""
+        try:
+            normalized_uid = _normalize_uid(uid)
+        except ValueError:
+            raise HTTPException(422, "Invalid client UID") from None
+        result = await asyncio.to_thread(registry.delete_clients, [normalized_uid])
+        if not result["deleted"]:
+            raise HTTPException(404, "UID has not registered")
+        logging.getLogger("uvicorn.error").info(
+            "Client deleted uid=%s removed_default_canary=%d removed_version_canary=%d",
+            normalized_uid,
+            result["removed_default_canary"],
+            result["removed_version_canary"],
+        )
+        return JSONResponse(
+            {**result, "groups": registry.list_groups()},
             headers={"Cache-Control": "no-store"},
         )
 
